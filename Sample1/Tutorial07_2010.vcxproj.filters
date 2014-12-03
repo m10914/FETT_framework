@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns:atg="http://atg.xbox.com" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{8e114980-c1a3-4ada-ad7c-83caadf5daeb}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{2c3d4c8c-5d1a-459a-a05a-a4e4b608a44e}</UniqueIdentifier>
+      <Extensions>fx;fxh;hlsl</Extensions>
+    </Filter>
+    <Filter Include="FW">
+      <UniqueIdentifier>{fc7add7b-24d7-464a-8117-d7e4735900b5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TestProject">
+      <UniqueIdentifier>{d09fa690-f6c3-4a11-ae70-831e58052715}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="FW\primitives">
+      <UniqueIdentifier>{c8456446-ed33-46b1-b988-3bd9e06be33e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dxapp.cpp">
+      <Filter>FW</Filter>
+    </ClCompile>
+    <ClCompile Include="TestProject.cpp">
+      <Filter>TestProject</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="FPCube.cpp">
+      <Filter>FW\primitives</Filter>
+    </ClCompile>
+    <ClCompile Include="VertexFormats.cpp">
+      <Filter>FW</Filter>
+    </ClCompile>
+    <ClCompile Include="FPPlane.cpp">
+      <Filter>FW\primitives</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CLInclude Include="resource.h">
+      <Filter>Resource Files</Filter>
+    </CLInclude>
+    <ResourceCompile Include="Tutorial07.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <ClInclude Include="dxapp.h">
+      <Filter>FW</Filter>
+    </ClInclude>
+    <ClInclude Include="TestProject.h">
+      <Filter>TestProject</Filter>
+    </ClInclude>
+    <ClInclude Include="FPCube.h">
+      <Filter>FW\primitives</Filter>
+    </ClInclude>
+    <ClInclude Include="VertexFormats.h">
+      <Filter>FW</Filter>
+    </ClInclude>
+    <ClInclude Include="FPrimitive.h">
+      <Filter>FW\primitives</Filter>
+    </ClInclude>
+    <ClInclude Include="FPPlane.h">
+      <Filter>FW\primitives</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="TestProjectShader.fx">
+      <Filter>TestProject</Filter>
+    </None>
+  </ItemGroup>
+</Project>
