@@ -32,6 +32,7 @@ struct __declspec(align(16)) CBNeverChanges
 struct __declspec(align(16)) CBChangeOnResize
 {
 	XMMATRIX mProjection;
+	XMFLOAT4 mScreenParams;
 };
 
 struct __declspec(align(16)) CBChangesEveryFrame
@@ -52,7 +53,14 @@ struct CameraDesc
 	XMVECTOR vAt;
 	XMVECTOR vUp;
 
+	//projection
+	float farPlane;
+	float nearPlane;
+	float fov;
+	float aspect;
+
 	XMMATRIX getViewMatrix();
+	XMMATRIX getProjMatrix();
 };
 
 

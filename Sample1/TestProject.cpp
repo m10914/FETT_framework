@@ -55,13 +55,13 @@ HRESULT TestProject::RenderScene()
 
 
 	camDesc.phi = t*0.5f;
-	camDesc.theta = XM_PI*0.8f;
+	camDesc.theta = XM_PI*0.8f + sin(t*0.8)*0.6;
 	CBChangesEveryFrame cb;
 	cb.mView = XMMatrixTranspose( camDesc.getViewMatrix() );
 
 	//setup common stuff
 	ID3D11SamplerState* aSamplers[] = { mSamplerLinear, mBackbufferSampler, mDepthSampler };
-	mImmediateContext->PSSetSamplers( 0, 1, aSamplers );
+	mImmediateContext->PSSetSamplers( 0, 3, aSamplers );
 
 
 	//--------------------------------------------------------------------
@@ -95,7 +95,9 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->VSSetConstantBuffers( 1, 1, &mCBChangeOnResize );
 	mImmediateContext->VSSetConstantBuffers( 2, 1, &mCBChangesEveryFrame );
 
+	mImmediateContext->PSSetConstantBuffers( 1, 1, &mCBChangeOnResize );
 	mImmediateContext->PSSetConstantBuffers( 2, 1, &mCBChangesEveryFrame );
+
 	mImmediateContext->PSSetShaderResources( 0, 1, &mTextureRV );
 	mImmediateContext->PSSetShaderResources( 1, 1, &mTextureRV );
 	mImmediateContext->PSSetShaderResources( 2, 1, &mTextureRV );
@@ -116,7 +118,7 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->PSSetShaderResources( 1, 1, &mRTSecondRV );
 	mImmediateContext->PSSetShaderResources( 2, 1, &mDSSecondRV );
 	
-	mWorld = XMMatrixTranslation(0,-3,0) * XMMatrixScaling(10,1,10);
+	mWorld = XMMatrixTranslation(0,-1.5,0) * XMMatrixScaling(10,1,10);
 	cb.mWorld = XMMatrixTranspose( mWorld );
 	mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
 	mImmediateContext->VSSetConstantBuffers( 2, 1, &mCBChangesEveryFrame );
@@ -295,17 +297,24 @@ HRESULT TestProject::InitScene()
 	camDesc.theta = 0;
 	camDesc.vAt = XMVectorSet(0,0,0,0);
 	camDesc.vUp = XMVectorSet(0,1,0,0);
+	camDesc.fov = XM_PIDIV4;
+	camDesc.aspect = swapChainDesc.BufferDesc.Width / (FLOAT)swapChainDesc.BufferDesc.Height;
+	camDesc.nearPlane = 0.1f;
+	camDesc.farPlane = 500.0f;
 
 
 	// Initialize the projection matrix
-	RECT rc;
-	GetClientRect( mHwnd, &rc );
-	UINT width = rc.right - rc.left;
-	UINT height = rc.bottom - rc.top;
-	mProjection = XMMatrixPerspectiveFovLH( XM_PIDIV4, width / (FLOAT)height, 0.01f, 100.0f );
+	mProjection = camDesc.getProjMatrix();
 
 	CBChangeOnResize cbChangesOnResize;
 	cbChangesOnResize.mProjection = XMMatrixTranspose( mProjection );
+	cbChangesOnResize.mScreenParams =
+		XMFLOAT4(
+			swapChainDesc.BufferDesc.Width,
+			swapChainDesc.BufferDesc.Height,
+			camDesc.nearPlane,
+			camDesc.farPlane
+			);
 	mImmediateContext->UpdateSubresource( mCBChangeOnResize, 0, NULL, &cbChangesOnResize, 0, 0 );
 
 	return S_OK;
@@ -417,3 +426,7 @@ XMMATRIX CameraDesc::getViewMatrix()
 	return viewMat;
 }
 
+XMMATRIX CameraDesc::getProjMatrix()
+{
+	return XMMatrixPerspectiveFovLH( fov, aspect, nearPlane, farPlane );
+}
