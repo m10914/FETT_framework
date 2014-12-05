@@ -99,8 +99,8 @@ HRESULT FPCube::Init(LPD3D11Device device)
 	bd.CPUAccessFlags = 0;
 	InitData.pSysMem = indices;
 	hr = device->CreateBuffer( &bd, &InitData, &mIndexBuffer );
-	if( FAILED( hr ) )
-		return hr;
+
+	return hr;
 }
 
 

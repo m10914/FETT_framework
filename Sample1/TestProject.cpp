@@ -2,6 +2,13 @@
 #include "TestProject.h"
 
 
+CameraDesc::CameraDesc()
+{
+	radius = 0;
+	phi = 0;
+	theta = 0;
+}
+
 
 TestProject::TestProject():
 	mVertexShader(NULL),
@@ -53,11 +60,19 @@ HRESULT TestProject::RenderScene()
 		dwTimeStart = dwTimeCur;
 	t = ( dwTimeCur - dwTimeStart ) / 1000.0f;
 
-
-	camDesc.phi = t*0.5f;
-	camDesc.theta = XM_PI*0.8f + sin(t*0.8)*0.6;
+	//camera handling
+	{
+		camDesc.phi += (float)mouseDX * 0.001f;
+		camDesc.theta += (float)mouseDY * 0.001f;
+	}
 	CBChangesEveryFrame cb;
 	cb.mView = XMMatrixTranspose( camDesc.getViewMatrix() );
+	cb.SSRParams = XMFLOAT4(
+			32.0f,
+			0.0025f,
+			42.0 / swapChainDesc.BufferDesc.Height,
+			0
+		);
 
 	//setup common stuff
 	ID3D11SamplerState* aSamplers[] = { mSamplerLinear, mBackbufferSampler, mDepthSampler };
@@ -73,17 +88,15 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->ClearRenderTargetView( mRTSecondRTV, ClearColor );
 	mImmediateContext->ClearDepthStencilView( mDSSecondDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 
-	//setup world matrux for cube
-	mWorld = XMMatrixRotationY( t );
+	
 
 	// Modify the color
 	mVMeshColor.x = ( sinf( t * 1.0f ) + 1.0f ) * 0.5f;
 	mVMeshColor.y = ( cosf( t * 3.0f ) + 1.0f ) * 0.5f;
 	mVMeshColor.z = ( sinf( t * 5.0f ) + 1.0f ) * 0.5f;
-
-	cb.mWorld = XMMatrixTranspose( mWorld );
 	cb.vMeshColor = mVMeshColor;
-	mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+
+	
 
 	// render stuff
 	mImmediateContext->IASetInputLayout( mVertexLayout );
@@ -102,23 +115,53 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->PSSetShaderResources( 1, 1, &mTextureRV );
 	mImmediateContext->PSSetShaderResources( 2, 1, &mTextureRV );
 	
-	cube.Render(mDevice, mImmediateContext);
+	//render cubes
+	{
+		mWorld = XMMatrixRotationY( t );
+		cb.mWorld = XMMatrixTranspose( mWorld );
+		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+		cube.Render(mDevice, mImmediateContext);
 
+		mWorld *= XMMatrixTranslation(3, 0, 0);
+		cb.mWorld = XMMatrixTranspose( mWorld );
+		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+		cube.Render(mDevice, mImmediateContext);
+
+		mWorld *= XMMatrixTranslation(-6, 0, 0);
+		cb.mWorld = XMMatrixTranspose( mWorld );
+		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+		cube.Render(mDevice, mImmediateContext);
+	}
 
 	//--------------------------------------------------------------------
 	// R E F L E C T
 
 	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView);
 
-	// again render cube
-	cube.Render(mDevice, mImmediateContext);
+	//render cubes
+	{
+		mWorld = XMMatrixRotationY( t );
+		cb.mWorld = XMMatrixTranspose( mWorld );
+		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+		cube.Render(mDevice, mImmediateContext);
+
+		mWorld *= XMMatrixTranslation(3, 0, 0);
+		cb.mWorld = XMMatrixTranspose( mWorld );
+		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+		cube.Render(mDevice, mImmediateContext);
+
+		mWorld *= XMMatrixTranslation(-6, 0, 0);
+		cb.mWorld = XMMatrixTranspose( mWorld );
+		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+		cube.Render(mDevice, mImmediateContext);
+	}
 
 	mImmediateContext->VSSetShader( mVertexShaderReflection, NULL, 0 );
 	mImmediateContext->PSSetShader( mPixelShaderReflection, NULL, 0 );
 	mImmediateContext->PSSetShaderResources( 1, 1, &mRTSecondRV );
 	mImmediateContext->PSSetShaderResources( 2, 1, &mDSSecondRV );
 	
-	mWorld = XMMatrixTranslation(0,-1.5,0) * XMMatrixScaling(10,1,10);
+	mWorld = XMMatrixTranslation(0,-0.3,0) * XMMatrixScaling(10,1,10);
 	cb.mWorld = XMMatrixTranspose( mWorld );
 	mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
 	mImmediateContext->VSSetConstantBuffers( 2, 1, &mCBChangesEveryFrame );
@@ -291,16 +334,19 @@ HRESULT TestProject::InitScene()
 	mWorld = XMMatrixIdentity();
 
 
-	// Initialize the view matrix
-	camDesc.radius = 15;
-	camDesc.phi = 0;
-	camDesc.theta = 0;
-	camDesc.vAt = XMVectorSet(0,0,0,0);
-	camDesc.vUp = XMVectorSet(0,1,0,0);
-	camDesc.fov = XM_PIDIV4;
-	camDesc.aspect = swapChainDesc.BufferDesc.Width / (FLOAT)swapChainDesc.BufferDesc.Height;
-	camDesc.nearPlane = 0.1f;
-	camDesc.farPlane = 500.0f;
+	// Camera handling
+	{
+		camDesc.radius = 15;
+		camDesc.phi = 0;
+		camDesc.theta = 0;
+		camDesc.vAt = XMVectorSet(0,0,0,0);
+		camDesc.vUp = XMVectorSet(0,1,0,0);
+		camDesc.fov = XM_PIDIV4;
+		camDesc.aspect = swapChainDesc.BufferDesc.Width / (FLOAT)swapChainDesc.BufferDesc.Height;
+		camDesc.nearPlane = 0.1f;
+		camDesc.farPlane = 500.0f;
+	}
+	
 
 
 	// Initialize the projection matrix
@@ -315,6 +361,13 @@ HRESULT TestProject::InitScene()
 			camDesc.nearPlane,
 			camDesc.farPlane
 			);
+	cbChangesOnResize.mPerspectiveValues =
+		XMFLOAT4(
+		1.0f / mProjection.m[0][0],
+		1.0f / mProjection.m[1][1],
+		mProjection.m[3][2],
+		-mProjection.m[2][2]
+	);
 	mImmediateContext->UpdateSubresource( mCBChangeOnResize, 0, NULL, &cbChangesOnResize, 0, 0 );
 
 	return S_OK;
@@ -415,15 +468,21 @@ HRESULT TestProject::ReleaseScene()
 
 XMMATRIX CameraDesc::getViewMatrix()
 {
-	XMVECTOR Eye = XMVectorSet(
-		radius*cos(theta)*sin(phi),
-		radius*sin(theta),
-		radius*cos(theta)*cos(phi),
-		0.0f );
+	auto eye = getEye();
+	XMVECTOR Eye = XMVectorSet(eye.x, eye.y, eye.z, eye.w);
 
 	XMMATRIX viewMat = XMMatrixLookAtLH( Eye, vAt, vUp );
 
 	return viewMat;
+}
+
+XMFLOAT4 CameraDesc::getEye()
+{
+	return XMFLOAT4(
+		radius*cos(theta)*sin(phi),
+		radius*sin(theta),
+		radius*cos(theta)*cos(phi),
+		0.0f );
 }
 
 XMMATRIX CameraDesc::getProjMatrix()

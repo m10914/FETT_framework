@@ -19,6 +19,10 @@ Basic framework class for all application.
 #include <xnamath.h>
 
 
+#pragma comment (lib, "dinput8.lib")
+#pragma comment (lib, "dxguid.lib")
+#include <dinput.h>
+
 //some defines
 #define LPD3D11Device ID3D11Device*
 #define LPD3DDeviceContext ID3D11DeviceContext*
@@ -58,7 +62,7 @@ public:
 	DXApp();
 	~DXApp();
 
-	HRESULT Init(HWND lHwnd);
+	HRESULT Init(HWND lHwnd, HINSTANCE hInstance);
 	HRESULT Render();
 	HRESULT Release();
 
@@ -90,6 +94,24 @@ protected:
 
 	ID3D11ShaderResourceView*			mRenderTargetRV;
 	ID3D11ShaderResourceView*			mDepthStencilRV;
+
+
+	//------------------------------------------------------------
+	// input 
+
+	IDirectInputDevice8* DIKeyboard;
+	IDirectInputDevice8* DIMouse;
+	DIMOUSESTATE mouseLastState;
+	LPDIRECTINPUT8 DirectInput;
+
+	bool bFirstCapture;
+	LONG mouseDX, mouseDY, mouseDZ;
+	BYTE keyboardState[256];
+public:
+	bool isKeyInState(BYTE key)
+	{
+		return keyboardState[key] & 0x80;
+	};
 };
 
 

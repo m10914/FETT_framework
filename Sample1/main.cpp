@@ -45,7 +45,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdL
     if( FAILED( InitWindow( hInstance, nCmdShow ) ) )
         return 0;
 
-    if( FAILED( application->Init(g_hWnd) ) )
+    if( FAILED( application->Init(g_hWnd, hInstance) ) )
     {
         application->Release();
         return 0;

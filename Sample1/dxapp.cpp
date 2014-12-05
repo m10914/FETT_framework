@@ -22,6 +22,9 @@ DXApp::DXApp():
 	mDepthStencilRV(NULL)
 {
 	//init vars here
+	bFirstCapture = true;
+	DIKeyboard = NULL;
+	DIMouse = NULL;
 }
 
 DXApp::~DXApp()
@@ -36,9 +39,31 @@ DXApp::~DXApp()
 ======================================================================
 ======================================================================
 */
-HRESULT DXApp::Init(HWND lHwnd)
+HRESULT DXApp::Init(HWND lHwnd, HINSTANCE hInstance)
 {
 	HRESULT hr = S_OK;
+
+	//create dinput
+	{
+		hr = DirectInput8Create(hInstance,
+			DIRECTINPUT_VERSION,
+			IID_IDirectInput8,
+			(void**)&DirectInput,
+			NULL); 
+		hr = DirectInput->CreateDevice(GUID_SysKeyboard,
+			&DIKeyboard,
+			NULL);
+
+		hr = DirectInput->CreateDevice(GUID_SysMouse,
+			&DIMouse,
+			NULL);
+
+		hr = DIKeyboard->SetDataFormat(&c_dfDIKeyboard);
+		hr = DIKeyboard->SetCooperativeLevel(lHwnd, DISCL_FOREGROUND | DISCL_NONEXCLUSIVE);
+
+		hr = DIMouse->SetDataFormat(&c_dfDIMouse);
+		hr = DIMouse->SetCooperativeLevel(lHwnd, DISCL_NONEXCLUSIVE | DISCL_NOWINKEY | DISCL_FOREGROUND);
+	}
 
 	mHwnd = lHwnd;
 
@@ -218,6 +243,34 @@ HRESULT DXApp::CompileShaderFromFile( char* szFileName, LPCSTR szEntryPoint, LPC
 
 HRESULT DXApp::Render()
 {	
+	// First thing - get frame move
+	{
+		DIMOUSESTATE mouseCurrState;
+		
+		DIKeyboard->Acquire();
+		DIMouse->Acquire();
+
+		DIMouse->GetDeviceState(sizeof(DIMOUSESTATE), &mouseCurrState);
+		DIKeyboard->GetDeviceState(sizeof(keyboardState),(LPVOID)&keyboardState);
+
+		if(bFirstCapture)
+		{
+			bFirstCapture = false;
+			mouseDX = 0;
+			mouseDY = 0;
+			mouseDZ = 0;
+		}
+		else
+		{
+			mouseDX = mouseCurrState.lX;// - mouseLastState.lX;
+			mouseDZ = mouseCurrState.lZ;// - mouseLastState.lZ;
+			mouseDY = mouseCurrState.lY;// - mouseLastState.lY;
+		}
+
+		mouseLastState = mouseCurrState;
+	}
+
+
 	//------------------------------
 	// Main G-Buffer handling
 
@@ -256,6 +309,13 @@ HRESULT DXApp::Release()
 	SAFE_RELEASE( mImmediateContext );
 
 	SAFE_RELEASE( mDevice );
+
+	//dinput
+	{
+		DIKeyboard->Unacquire();
+		DIMouse->Unacquire();
+		DirectInput->Release();
+	}
 
 	return S_OK;
 }

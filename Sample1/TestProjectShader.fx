@@ -24,6 +24,7 @@ cbuffer cbChangeOnResize : register( b1 )
 {
     matrix Projection;
 	float4 vScreenParams;
+	float4 PerspectiveValues;
 };
 
 cbuffer cbChangesEveryFrame : register( b2 )
@@ -31,13 +32,9 @@ cbuffer cbChangesEveryFrame : register( b2 )
     matrix World;
     float4 vMeshColor;
 	matrix View;
+
+	float4 SSRParams; //x - numsteps, y - depth bias, z - pixelsize, w - reserved
 };
-
-
-
-static const float stepSize = 0.01;
-static const float maxDelta = 0.01;   // Delta depth test value
-static const float fade = 5.0;
 
 
 
@@ -91,60 +88,34 @@ Reflection shader
 ==============================================================
 */
 
+
 struct PS_REF_INPUT
 {
     float4 Pos : SV_POSITION;
     float2 Tex : TEXCOORD0;
-	float4 PosVS : POSITION; //view-space position
+	float4 PosVS : TEXCOORD1;
+	float3 NormalVS : TEXCOORD2;
+	noperspective float3 PosCS : TEXCOORD3;
 };
 
 
 
 
-//math
-float3 fromVStoNDC(float3 vec) //after that we get coordinates from 0 to 1
+float ConvertZToLinearDepth(float depth)
 {
-	float4 res = mul( float4(vec,1), Projection );
-	return mad( res.xyz / res.w, 0.5, 0.5);
-}
-float linearizeDepth(float depth)
-{
-    return (2.0 * vScreenParams.z) / (vScreenParams.w + vScreenParams.z - depth * (vScreenParams.w - vScreenParams.z));
+	float linearDepth = PerspectiveValues.z / (depth + PerspectiveValues.w);
+	return linearDepth;
 }
 
-float4 raytrace(in float3 startPos, in float3 endPos)
+float3 CalcViewPos(float2 csPos, float depth)
 {
-	// Convert start and end positions of reflect vector from the
-	// camera space to the screen space
+	float3 position;
 
-    float3 startPosSS = fromVStoNDC( startPos );
-    float3 endPosSS = fromVStoNDC( endPos );
+	position.xy = csPos.xy * PerspectiveValues.xy * depth;
+	position.z = depth;
 
-    // Reflection vector in the screen space
-    float3 vectorSS = normalize(endPosSS.xyz - startPosSS.xyz)*stepSize;
-    
-    // cycle
-    float2 samplePos = 0;   // texcoord for the depth and color
-    float sampleDepth = 0;  // depth from texture
-    float currentDepth = 0; // current depth calculated with reflection vector
-    float deltaD = 0;
-    float4 color = float4(0,0,0,1);
-    for (int i = 1; i < 64; i++)
-    {
-        samplePos = (startPosSS.xy + vectorSS.xy*i);
-        currentDepth = linearizeDepth(startPosSS.z + vectorSS.z*i);        
-        sampleDepth = linearizeDepth( txDepth.Sample( samDepth, samplePos ).r );
-        deltaD = currentDepth - sampleDepth;
-        if ( deltaD > -maxDelta && deltaD < maxDelta )
-        {
-            color = txBackbuffer.Sample( samBackbuffer, samplePos );
-            color.a *= fade / i;
-            break;
-        }
-    }
-    return color;
+	return position;
 }
-
 
 PS_REF_INPUT VS_Reflection( VS_INPUT input )
 {
@@ -152,10 +123,13 @@ PS_REF_INPUT VS_Reflection( VS_INPUT input )
     output.Pos = mul( float4(input.Pos.xyz,1), World );
     output.Pos = mul( output.Pos, View );
 	output.PosVS = output.Pos;
-
-    output.Pos = mul( output.Pos, Projection );   
+    output.Pos = mul( output.Pos, Projection );
 
 	output.Tex = input.Tex;
+
+	output.PosCS = output.Pos.xyz / output.Pos.w;
+
+	output.NormalVS = mul( float3(0,1,0), (float3x3)View );
 
     return output;
 }
@@ -163,13 +137,78 @@ PS_REF_INPUT VS_Reflection( VS_INPUT input )
 
 float4 PS_Reflection( PS_REF_INPUT input ) : SV_Target
 {
-	float2 sTexCoords = input.Pos.xy / vScreenParams.xy;
+	int nNumSteps = SSRParams.x;
+	float DepthBias = SSRParams.y;
+	float PixelSize = SSRParams.z;
 
-	// now we have spos - texture coordinates
-	float3 NormalVS = normalize( mul( float4(0,1,0,0), View).xyz );
-	float3 VecVS = normalize( reflect( input.PosVS.xyz, NormalVS ) ) / 2;
+	// Pixel position and normal in view space
+	float3 vsPos = input.PosVS.xyz;
+	float3 vsNorm = normalize(input.NormalVS);
 
-	//return float4( mad(NormalVS,0.5,0.5).xyz, 1);
+	// Calculate the camera to pixel direction
+	float3 eyeToPixel = normalize(vsPos);
 
-	return raytrace(input.PosVS, input.PosVS + VecVS);
+	// Calculate the reflected view direction
+	float3 vsReflect = reflect(eyeToPixel,  vsNorm);
+
+	// The initial reflection color for the pixel
+	float4 reflectColor = float4(0.0, 0.0, 0.0, 0.0);
+
+	// Transform the View Space Reflection to clip-space
+	float3 vsPosReflect = vsPos + vsReflect;
+	float3 csPosReflect = mul(float4(vsPosReflect, 1.0), Projection).xyz / vsPosReflect.z;
+	float3 csReflect = csPosReflect - input.PosCS;
+
+	// Resize Screen Space Reflection to an appropriate length.
+	float reflectScale = PixelSize / length(csReflect.xy);
+	csReflect *= reflectScale;
+
+	// Calculate the first sampling position in screen-space
+	float2 ssSampPos = (input.PosCS + csReflect).xy;
+	ssSampPos = ssSampPos * float2(0.5, -0.5) + 0.5;
+
+	// Find each iteration step in screen-space
+	float2 ssStep = csReflect.xy * float2(0.5, -0.5);
+
+	// Build a plane laying on the reflection vector
+	// Use the eye to pixel direction to build the tangent vector
+	float4 rayPlane;
+	float3 vRight = cross(eyeToPixel, vsReflect);
+	rayPlane.xyz = normalize(cross(vsReflect, vRight));
+	rayPlane.w = dot(rayPlane, vsPos);
+
+	//if(input.Pos.x/vScreenParams.x < 0.5)
+		//return float4(input.PosCS, 1);
+
+	// Iterate over the HDR texture searching for intersection
+	for (int nCurStep = 0; nCurStep < nNumSteps; nCurStep++)
+	{
+		// Sample from depth buffer
+		float curDepth = txDepth.SampleLevel(samDepth, ssSampPos, 0.0).x;
+
+		float curDepthLin = ConvertZToLinearDepth(curDepth);
+		float3 curPos = CalcViewPos(input.PosCS.xy + csReflect.xy * ((float)nCurStep + 1.0), curDepthLin);
+
+		// Find the intersection between the ray and the scene
+		// The intersection happens between two positions on the oposite sides of the plane
+		if(rayPlane.w >= dot(rayPlane.xyz, curPos) + DepthBias)
+		{
+			// Calculate the actual position on the ray for the given depth value
+			float3 vsFinalPos = vsPos + (vsReflect / abs(vsReflect.z)) * abs(curDepthLin - vsPos.z + DepthBias);
+			float2 csFinalPos = vsFinalPos.xy / PerspectiveValues.xy / vsFinalPos.z;
+			ssSampPos = csFinalPos.xy * float2(0.5, -0.5) + 0.5;
+
+			// Get the HDR value at the current screen space location
+			reflectColor.xyz = txBackbuffer.SampleLevel(samBackbuffer, ssSampPos, 0.0).xyz;
+
+			// Advance past the final iteration to break the loop
+			nCurStep = nNumSteps;
+		}
+
+		// Advance to the next sample
+		ssSampPos += ssStep;	
+	}
+
+
+	return float4(0.1, 0.7, 0.1, 1) * 0.6 + 0.4* reflectColor;
 }

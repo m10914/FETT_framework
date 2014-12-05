@@ -33,6 +33,7 @@ struct __declspec(align(16)) CBChangeOnResize
 {
 	XMMATRIX mProjection;
 	XMFLOAT4 mScreenParams;
+	XMFLOAT4 mPerspectiveValues;
 };
 
 struct __declspec(align(16)) CBChangesEveryFrame
@@ -40,12 +41,15 @@ struct __declspec(align(16)) CBChangesEveryFrame
 	XMMATRIX mWorld;
 	XMFLOAT4 vMeshColor;
 	XMMATRIX mView;
+	XMFLOAT4 SSRParams;
 };
 
 
 // draft
 struct CameraDesc
 {
+	CameraDesc();
+
 	float radius;
 	float phi;
 	float theta;
@@ -61,6 +65,7 @@ struct CameraDesc
 
 	XMMATRIX getViewMatrix();
 	XMMATRIX getProjMatrix();
+	XMFLOAT4 getEye();
 };
 
 
