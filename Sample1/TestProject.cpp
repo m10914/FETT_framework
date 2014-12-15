@@ -20,7 +20,8 @@ TestProject::TestProject():
 	mVertexShaderReflection(NULL),
 	mPixelShaderReflection(NULL),
 
-	mVertexLayout(NULL),
+	mLayoutPT(NULL),
+    mLayoutPNT(NULL),
 
 	mCBChangesEveryFrame(NULL),
 
@@ -148,7 +149,7 @@ HRESULT TestProject::RenderScene()
 
 
 	// render stuff
-	mImmediateContext->IASetInputLayout( mVertexLayout );
+	mImmediateContext->IASetInputLayout( mLayoutPT );
 
 	mImmediateContext->VSSetShader( mVertexShader, NULL, 0 );
 	mImmediateContext->PSSetShader( mPixelShader, NULL, 0 );
@@ -230,7 +231,7 @@ HRESULT TestProject::InitScene()
 
 	// Compile the vertex shader
 	ID3DBlob* pVSBlob = NULL;
-	hr = CompileShaderFromFile( "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob );
+	hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob );
 	if( FAILED( hr ) )
 	{
 		MessageBox( NULL,
@@ -248,7 +249,7 @@ HRESULT TestProject::InitScene()
 
 	// Vertex shader for reflection
 	pVSBlob = NULL;
-	hr = CompileShaderFromFile( "TestProjectShader.fx", "VS_Reflection", "vs_4_0", &pVSBlob );
+	hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "VS_Reflection", "vs_4_0", &pVSBlob );
 	if( FAILED( hr ) )
 	{
 		MessageBox( NULL,
@@ -266,26 +267,14 @@ HRESULT TestProject::InitScene()
 
 
 	// Define the input layout
-	D3D11_INPUT_ELEMENT_DESC layout[] =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	};
-	UINT numElements = ARRAYSIZE( layout );
-
-	// Create the input layout
-	hr = mDevice->CreateInputLayout( layout, numElements, pVSBlob->GetBufferPointer(),
-		pVSBlob->GetBufferSize(), &mVertexLayout );
-	pVSBlob->Release();
-	if( FAILED( hr ) )
-		return hr;
+	mLayoutPT = VertexFormatMgr::getPTLayout(mDevice);
 
 
 	// Compile the pixel shader
 	// 1st shader - simple rendering
 	
 	ID3DBlob* pPSBlob = NULL;
-	hr = CompileShaderFromFile( "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob );
+	hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob );
 	if( FAILED( hr ) )
 	{
 		MessageBox( NULL,
@@ -302,7 +291,7 @@ HRESULT TestProject::InitScene()
 		return hr;
 
 	pPSBlob = NULL;
-	hr = CompileShaderFromFile( "TestProjectShader.fx", "PS_Reflection", "ps_4_0", &pPSBlob);
+	hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "PS_Reflection", "ps_4_0", &pPSBlob);
 	if( FAILED( hr ) )
 	{
 		MessageBox( NULL,
@@ -443,7 +432,6 @@ HRESULT TestProject::ReleaseScene()
 	SAFE_RELEASE(mVertexShader);
 	SAFE_RELEASE(mPixelShader);
 
-	SAFE_RELEASE(mVertexLayout);
 
 	SAFE_RELEASE(mCBChangesEveryFrame);
 	SAFE_RELEASE(mTextureRV);

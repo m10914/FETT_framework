@@ -51,7 +51,8 @@ private:
 	ID3D11VertexShader*                 mVertexShaderReflection;
 	ID3D11PixelShader*                  mPixelShaderReflection;
 
-	ID3D11InputLayout*                  mVertexLayout;
+    ID3D11InputLayout*                  mLayoutPT;
+    ID3D11InputLayout*                  mLayoutPNT;
 
 	ID3D11Buffer*                       mCBChangesEveryFrame;
 	

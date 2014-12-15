@@ -18,6 +18,7 @@ Basic framework class for all application.
 #include <DxErr.h>
 #include <xnamath.h>
 
+#include "VertexFormats.h"
 
 #pragma comment (lib, "dinput8.lib")
 #pragma comment (lib, "dxguid.lib")
@@ -49,11 +50,7 @@ Basic framework class for all application.
 
 #define KEYSTATE_DOWN 0x80
 
-struct __declspec(align(16)) SimpleVertex
-{
-	XMFLOAT3 Pos;
-	XMFLOAT2 Tex;
-};
+
 
 struct __declspec(align(16)) CBMatrixSet
 {
@@ -78,7 +75,6 @@ public:
     HRESULT PreRender();
 
 protected:
-	HRESULT CompileShaderFromFile( char* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut );
 
 	HRESULT CreateMainGBuffer();
 

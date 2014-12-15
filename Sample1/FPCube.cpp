@@ -23,7 +23,7 @@ HRESULT FPCube::Init(LPD3D11Device device)
 	HRESULT hr;
 
 	// Create vertex buffer
-	SimpleVertex vertices[] =
+	VertexFormatPT vertices[] =
 	{
 		{ XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
 		{ XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
@@ -56,14 +56,16 @@ HRESULT FPCube::Init(LPD3D11Device device)
 		{ XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
 	};
 
+    D3D11_SUBRESOURCE_DATA InitData;
+    ZeroMemory( &InitData, sizeof(InitData) );
+
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory( &bd, sizeof(bd) );
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof( SimpleVertex ) * 24;
+	bd.ByteWidth = sizeof( VertexFormatPT ) * 24;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
-	D3D11_SUBRESOURCE_DATA InitData;
-	ZeroMemory( &InitData, sizeof(InitData) );
+	
 	InitData.pSysMem = vertices;
 	hr = device->CreateBuffer( &bd, &InitData, &mVertexBuffer );
 	if( FAILED( hr ) )
@@ -97,6 +99,7 @@ HRESULT FPCube::Init(LPD3D11Device device)
 	bd.ByteWidth = sizeof( WORD ) * 36;
 	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	bd.CPUAccessFlags = 0;
+
 	InitData.pSysMem = indices;
 	hr = device->CreateBuffer( &bd, &InitData, &mIndexBuffer );
 
@@ -107,7 +110,7 @@ HRESULT FPCube::Init(LPD3D11Device device)
 HRESULT FPCube::Render(LPD3DDeviceContext context)
 {
 	// Set vertex buffer
-	UINT stride = sizeof( SimpleVertex );
+	UINT stride = sizeof( VertexFormatPT );
 	UINT offset = 0;
 	context->IASetVertexBuffers( 0, 1, &mVertexBuffer, &stride, &offset );
 

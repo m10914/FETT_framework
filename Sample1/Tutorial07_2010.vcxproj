@@ -371,7 +371,23 @@
       </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Text Include="VertexFormatsInitializer.fx">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="FPCube.cpp" />
@@ -380,6 +396,7 @@
     <ClCompile Include="FPrimitive.cpp" />
     <ClCompile Include="FUtil.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Surface.cpp" />
     <ClCompile Include="TestProject.cpp" />
     <ClCompile Include="VertexFormats.cpp" />
   </ItemGroup>
@@ -393,6 +410,7 @@
     <ClInclude Include="FPPlane.h" />
     <ClInclude Include="FPrimitive.h" />
     <ClInclude Include="FUtil.h" />
+    <ClInclude Include="Surface.h" />
     <ClInclude Include="TestProject.h" />
     <CLInclude Include="resource.h" />
     <ClInclude Include="VertexFormats.h" />

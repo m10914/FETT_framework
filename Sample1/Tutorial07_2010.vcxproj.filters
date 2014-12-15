@@ -21,6 +21,9 @@
     <Filter Include="FW\camera">
       <UniqueIdentifier>{1a26cf1d-4111-4c75-9570-d48afaebab76}</UniqueIdentifier>
     </Filter>
+    <Filter Include="FW\VertexFormat">
+      <UniqueIdentifier>{bba46abe-c3e6-4668-bbb5-33e345ba64d7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dxapp.cpp">
@@ -33,9 +36,6 @@
     <ClCompile Include="FPCube.cpp">
       <Filter>FW\primitives</Filter>
     </ClCompile>
-    <ClCompile Include="VertexFormats.cpp">
-      <Filter>FW</Filter>
-    </ClCompile>
     <ClCompile Include="FPPlane.cpp">
       <Filter>FW\primitives</Filter>
     </ClCompile>
@@ -47,6 +47,12 @@
     </ClCompile>
     <ClCompile Include="FUtil.cpp">
       <Filter>FW</Filter>
+    </ClCompile>
+    <ClCompile Include="Surface.cpp">
+      <Filter>TestProject</Filter>
+    </ClCompile>
+    <ClCompile Include="VertexFormats.cpp">
+      <Filter>FW\VertexFormat</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -65,9 +71,6 @@
     <ClInclude Include="FPCube.h">
       <Filter>FW\primitives</Filter>
     </ClInclude>
-    <ClInclude Include="VertexFormats.h">
-      <Filter>FW</Filter>
-    </ClInclude>
     <ClInclude Include="FPrimitive.h">
       <Filter>FW\primitives</Filter>
     </ClInclude>
@@ -80,10 +83,21 @@
     <ClInclude Include="FUtil.h">
       <Filter>FW</Filter>
     </ClInclude>
+    <ClInclude Include="Surface.h">
+      <Filter>TestProject</Filter>
+    </ClInclude>
+    <ClInclude Include="VertexFormats.h">
+      <Filter>FW\VertexFormat</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="TestProjectShader.fx">
       <Filter>TestProject</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="VertexFormatsInitializer.fx">
+      <Filter>FW\VertexFormat</Filter>
+    </Text>
   </ItemGroup>
 </Project>
