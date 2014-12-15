@@ -17,56 +17,28 @@
 #include <xmmintrin.h>
 
 #include "dxapp.h"
+#include "FUtil.h"
+
+#include "camera.h"
 #include "FPCube.h"
 #include "FPPlane.h"
+
 
 
 //--------------------------------------------------------------------------------------
 // Structures
 //--------------------------------------------------------------------------------------
 
-struct __declspec(align(16)) CBNeverChanges
+
+struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet
 {
+    XMFLOAT4 mScreenParams;
+    XMFLOAT4 mPerspectiveValues;
+
+	XMFLOAT4 vMeshColor;	
+	XMFLOAT4 SSRParams;  
 };
 
-struct __declspec(align(16)) CBChangeOnResize
-{
-	XMMATRIX mProjection;
-	XMFLOAT4 mScreenParams;
-	XMFLOAT4 mPerspectiveValues;
-};
-
-struct __declspec(align(16)) CBChangesEveryFrame
-{
-	XMMATRIX mWorld;
-	XMFLOAT4 vMeshColor;
-	XMMATRIX mView;
-	XMFLOAT4 SSRParams;
-};
-
-
-// draft
-struct CameraDesc
-{
-	CameraDesc();
-
-	float radius;
-	float phi;
-	float theta;
-
-	XMVECTOR vAt;
-	XMVECTOR vUp;
-
-	//projection
-	float farPlane;
-	float nearPlane;
-	float fov;
-	float aspect;
-
-	XMMATRIX getViewMatrix();
-	XMMATRIX getProjMatrix();
-	XMFLOAT4 getEye();
-};
 
 
 
@@ -81,8 +53,6 @@ private:
 
 	ID3D11InputLayout*                  mVertexLayout;
 
-	ID3D11Buffer*                       mCBNeverChanges;
-	ID3D11Buffer*                       mCBChangeOnResize;
 	ID3D11Buffer*                       mCBChangesEveryFrame;
 	
 	ID3D11ShaderResourceView*           mTextureRV;
@@ -105,14 +75,16 @@ private:
 	XMMATRIX                            mProjection;
 	XMFLOAT4                            mVMeshColor;
 
+
 	//----------------------------------
 	// objects
 	
-	CameraDesc camDesc;
+	DXCamera mainCamera;
 
 	FPCube	cube;
 	FPPlane	plane;
 
+    CBChangesEveryFrame cb;
 
 public:
 	TestProject();
@@ -132,6 +104,7 @@ protected:
 	virtual HRESULT RenderScene() override;
 	virtual HRESULT InitScene() override;
 	virtual HRESULT ReleaseScene() override;
+    virtual HRESULT FrameMove() override;
 };
 
 

@@ -21,7 +21,21 @@
 
 class FPrimitive
 {
-	virtual	HRESULT Init(LPD3D11Device device) = 0;
-	virtual HRESULT Render(LPD3D11Device device, LPD3DDeviceContext context) = 0;
-	virtual HRESULT Release() = 0;
+protected:
+
+public:
+
+    FPrimitive();
+
+    XMFLOAT3 position;
+    XMFLOAT3 rotationEuler;
+    XMFLOAT3 scale;
+   
+    XMMATRIX getTransform();
+    void writeTransform(CBMatrixSet& cbset);
+
+
+    virtual	HRESULT Init(LPD3D11Device device) = 0;
+    virtual HRESULT Render(LPD3DDeviceContext context) = 0;
+    virtual HRESULT Release() = 0;
 };

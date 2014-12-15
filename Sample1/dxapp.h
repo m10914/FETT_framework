@@ -26,6 +26,8 @@ Basic framework class for all application.
 //some defines
 #define LPD3D11Device ID3D11Device*
 #define LPD3DDeviceContext ID3D11DeviceContext*
+#define LPD3D11Buffer ID3D11Buffer*
+
 
 #define SAFE_RELEASE(x)		if (x) { (x)->Release();		(x) = NULL; }	//!< Safe D3D-style release
 
@@ -45,11 +47,19 @@ Basic framework class for all application.
 #endif
 #endif
 
+#define KEYSTATE_DOWN 0x80
 
 struct __declspec(align(16)) SimpleVertex
 {
 	XMFLOAT3 Pos;
 	XMFLOAT2 Tex;
+};
+
+struct __declspec(align(16)) CBMatrixSet
+{
+    XMMATRIX mWorld;
+    XMMATRIX mView;
+    XMMATRIX mProjection;
 };
 
 
@@ -65,6 +75,7 @@ public:
 	HRESULT Init(HWND lHwnd, HINSTANCE hInstance);
 	HRESULT Render();
 	HRESULT Release();
+    HRESULT PreRender();
 
 protected:
 	HRESULT CompileShaderFromFile( char* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut );
@@ -74,6 +85,8 @@ protected:
 	virtual HRESULT RenderScene() = 0;
 	virtual HRESULT InitScene() = 0;
 	virtual HRESULT ReleaseScene() = 0;
+
+    virtual HRESULT FrameMove() = 0; //pre-render function
 
 protected:
 	HWND mHwnd;
@@ -107,11 +120,29 @@ protected:
 	bool bFirstCapture;
 	LONG mouseDX, mouseDY, mouseDZ;
 	BYTE keyboardState[256];
+
 public:
 	bool isKeyInState(BYTE key)
 	{
-		return keyboardState[key] & 0x80;
+		return keyboardState[key] & KEYSTATE_DOWN == KEYSTATE_DOWN;
 	};
+
+
+    //-----------------------------------------------------
+    // measurements
+
+    double getCurrentComputerTime();
+
+
+protected:
+    double deltaTime; //in ms
+    double totalTime; //in ms
+    int currentFrame;
+
+private:
+    double startTime;
+    double lastFrameTime;
+    double ticksPerSecond;
 };
 
 

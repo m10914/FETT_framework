@@ -21,10 +21,16 @@ DXApp::DXApp():
 	mRenderTargetRV(NULL),
 	mDepthStencilRV(NULL)
 {
-	//init vars here
+	// input
 	bFirstCapture = true;
 	DIKeyboard = NULL;
 	DIMouse = NULL;
+
+    // measurements
+    deltaTime = 0;
+    totalTime = 0;
+    currentFrame = 0;
+    startTime = 0;
 }
 
 DXApp::~DXApp()
@@ -135,15 +141,31 @@ HRESULT DXApp::Init(HWND lHwnd, HINSTANCE hInstance)
 	vp.TopLeftY = 0;
 	mImmediateContext->RSSetViewports( 1, &vp );
 
-
+    // create G-Buffer
 	CreateMainGBuffer( );
 
+    // create timers
+    LARGE_INTEGER frequency;
+    QueryPerformanceFrequency(&frequency);
+    ticksPerSecond = frequency.QuadPart;
 
+    startTime = getCurrentComputerTime();
+
+
+    // launch virtual function
 	this->InitScene();
 
 
 	return S_OK;
 }
+
+double DXApp::getCurrentComputerTime()
+{
+    LARGE_INTEGER t1;
+    QueryPerformanceCounter(&t1);
+    return t1.QuadPart * 1000.0 / ticksPerSecond;
+}
+
 
 HRESULT DXApp::CreateMainGBuffer()
 {
@@ -240,55 +262,77 @@ HRESULT DXApp::CompileShaderFromFile( char* szFileName, LPCSTR szEntryPoint, LPC
 
 
 
+HRESULT DXApp::PreRender()
+{
+    // First thing - get frame move
+    {
+        DIMOUSESTATE mouseCurrState;
+
+        DIKeyboard->Acquire();
+        DIMouse->Acquire();
+
+        DIMouse->GetDeviceState(sizeof(DIMOUSESTATE), &mouseCurrState);
+        DIKeyboard->GetDeviceState(sizeof(keyboardState),(LPVOID)&keyboardState);
+
+        if(bFirstCapture)
+        {
+            bFirstCapture = false;
+            mouseDX = 0;
+            mouseDY = 0;
+            mouseDZ = 0;
+        }
+        else
+        {
+            mouseDX = mouseCurrState.lX;// - mouseLastState.lX;
+            mouseDZ = mouseCurrState.lZ;// - mouseLastState.lZ;
+            mouseDY = mouseCurrState.lY;// - mouseLastState.lY;
+        }
+
+        mouseLastState = mouseCurrState;
+    }
+
+
+    if(startTime == 0)
+    {
+        startTime = getCurrentComputerTime();
+        deltaTime = 0;
+        lastFrameTime = getCurrentComputerTime();
+        totalTime = 0;
+    }
+    else
+    {
+        deltaTime = getCurrentComputerTime() - lastFrameTime;
+        totalTime = getCurrentComputerTime() - startTime;
+        lastFrameTime = getCurrentComputerTime();
+    }
+    currentFrame++;
+
+    this->FrameMove();
+
+    return S_OK;
+}
+
 
 HRESULT DXApp::Render()
 {	
-	// First thing - get frame move
-	{
-		DIMOUSESTATE mouseCurrState;
-		
-		DIKeyboard->Acquire();
-		DIMouse->Acquire();
+    // prerender routine
 
-		DIMouse->GetDeviceState(sizeof(DIMOUSESTATE), &mouseCurrState);
-		DIKeyboard->GetDeviceState(sizeof(keyboardState),(LPVOID)&keyboardState);
-
-		if(bFirstCapture)
-		{
-			bFirstCapture = false;
-			mouseDX = 0;
-			mouseDY = 0;
-			mouseDZ = 0;
-		}
-		else
-		{
-			mouseDX = mouseCurrState.lX;// - mouseLastState.lX;
-			mouseDZ = mouseCurrState.lZ;// - mouseLastState.lZ;
-			mouseDY = mouseCurrState.lY;// - mouseLastState.lY;
-		}
-
-		mouseLastState = mouseCurrState;
-	}
+	PreRender();
 
 
 	//------------------------------
 	// Main G-Buffer handling
 
-	//set render targets
 	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView );
 
-	// Clear the back buffer
 	float ClearColor[4] = { 0.525f, 0.525f, 0.525f, 1.0f }; // red, green, blue, alpha
 	mImmediateContext->ClearRenderTargetView( mRenderTargetView, ClearColor );
-
-	// Clear the depth buffer to 1.0 (max depth)
 	mImmediateContext->ClearDepthStencilView( mDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 	
 
 	this->RenderScene();
 
 
-	// Present our back buffer to our front buffer
 	mSwapChain->Present( 0, 0 );
 
 	return S_OK;

@@ -1,13 +1,17 @@
+/*
+====================================================================
+
+====================================================================
+*/
+
 
 #include "TestProject.h"
 
+#include "camera.h"
+#include "FPCube.h"
+#include "FPPlane.h"
 
-CameraDesc::CameraDesc()
-{
-	radius = 0;
-	phi = 0;
-	theta = 0;
-}
+
 
 
 TestProject::TestProject():
@@ -18,8 +22,6 @@ TestProject::TestProject():
 
 	mVertexLayout(NULL),
 
-	mCBNeverChanges(NULL),
-	mCBChangeOnResize(NULL),
 	mCBChangesEveryFrame(NULL),
 
 	mTextureRV(NULL),
@@ -37,11 +39,93 @@ TestProject::TestProject():
 	mDSSecondRV(NULL),
 	mDSSecondDSV(NULL)
 {
-
 }
 
 TestProject::~TestProject()
 {
+}
+
+
+
+HRESULT TestProject::FrameMove()
+{
+    if(isKeyInState(DIK_ESCAPE))
+        exit(1);
+
+    // get keys
+    XMFLOAT3 offset = XMFLOAT3(0,0,0);
+    if(isKeyInState(DIK_W))
+    {
+        offset.x += deltaTime * 0.001;
+    }
+    if(isKeyInState(DIK_S))
+    {
+        offset.x -= deltaTime * 0.001;
+    }
+    if(isKeyInState(DIK_A))
+    {
+        offset.z += deltaTime * 0.001;
+    }
+    if(isKeyInState(DIK_D))
+    {
+        offset.z -= deltaTime * 0.001;
+    }
+    if(isKeyInState(DIK_E))
+    {
+        offset.y += deltaTime * 0.001;
+    }
+    if(isKeyInState(DIK_Q))
+    {
+        offset.y -= deltaTime * 0.001;
+    }
+
+
+    // update camera
+    mainCamera.FrameMove(offset, XMFLOAT3(mouseDX, mouseDY, mouseDZ));
+
+
+    // update some buffers
+    //---------------
+
+    cb.mView = XMMatrixTranspose( mainCamera.getViewMatrix() );
+
+    cb.SSRParams = XMFLOAT4(
+        32.0f,
+        0.0025f,
+        42.0 / swapChainDesc.BufferDesc.Height,
+        0
+        );
+
+    cb.mScreenParams = XMFLOAT4(
+        swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height,
+        mainCamera.getNearPlane(), mainCamera.getFarPlane() );
+
+    mProjection = mainCamera.getProjMatrix();
+    cb.mProjection = XMMatrixTranspose( mProjection );
+
+    cb.mScreenParams =
+        XMFLOAT4(
+        swapChainDesc.BufferDesc.Width,
+        swapChainDesc.BufferDesc.Height,
+        mainCamera.getNearPlane(),
+        mainCamera.getFarPlane()
+        );
+
+    cb.mPerspectiveValues =
+        XMFLOAT4(
+        1.0f / mProjection.m[0][0],
+        1.0f / mProjection.m[1][1],
+        mProjection.m[3][2],
+        -mProjection.m[2][2]
+    );
+
+    // Modify the color based on time
+    mVMeshColor.x = ( sinf( totalTime * 0.001f ) + 1.0f ) * 0.5f;
+    mVMeshColor.y = ( cosf( totalTime * 0.003f ) + 1.0f ) * 0.5f;
+    mVMeshColor.z = ( sinf( totalTime * 0.005f ) + 1.0f ) * 0.5f;
+    cb.vMeshColor = mVMeshColor;
+
+    return S_OK;
 }
 
 
@@ -51,36 +135,10 @@ TestProject::~TestProject()
 */
 HRESULT TestProject::RenderScene()
 {
-	// Update our time
-	static float t = 0.0f;
-
-	static DWORD dwTimeStart = 0;
-	DWORD dwTimeCur = GetTickCount();
-	if( dwTimeStart == 0 )
-		dwTimeStart = dwTimeCur;
-	t = ( dwTimeCur - dwTimeStart ) / 1000.0f;
-
-	//camera handling
-	{
-		camDesc.phi += (float)mouseDX * 0.001f;
-		camDesc.theta += (float)mouseDY * 0.001f;
-	}
-	CBChangesEveryFrame cb;
-	cb.mView = XMMatrixTranspose( camDesc.getViewMatrix() );
-	cb.SSRParams = XMFLOAT4(
-			32.0f,
-			0.0025f,
-			42.0 / swapChainDesc.BufferDesc.Height,
-			0
-		);
-
 	//setup common stuff
 	ID3D11SamplerState* aSamplers[] = { mSamplerLinear, mBackbufferSampler, mDepthSampler };
 	mImmediateContext->PSSetSamplers( 0, 3, aSamplers );
 
-
-	//--------------------------------------------------------------------
-	// C U B E
 
 	// set RT and clear it
 	mImmediateContext->OMSetRenderTargets( 1, &mRTSecondRTV, mDSSecondDSV);
@@ -88,15 +146,6 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->ClearRenderTargetView( mRTSecondRTV, ClearColor );
 	mImmediateContext->ClearDepthStencilView( mDSSecondDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 
-	
-
-	// Modify the color
-	mVMeshColor.x = ( sinf( t * 1.0f ) + 1.0f ) * 0.5f;
-	mVMeshColor.y = ( cosf( t * 3.0f ) + 1.0f ) * 0.5f;
-	mVMeshColor.z = ( sinf( t * 5.0f ) + 1.0f ) * 0.5f;
-	cb.vMeshColor = mVMeshColor;
-
-	
 
 	// render stuff
 	mImmediateContext->IASetInputLayout( mVertexLayout );
@@ -104,33 +153,24 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->VSSetShader( mVertexShader, NULL, 0 );
 	mImmediateContext->PSSetShader( mPixelShader, NULL, 0 );
 
-	mImmediateContext->VSSetConstantBuffers( 0, 1, &mCBNeverChanges );
-	mImmediateContext->VSSetConstantBuffers( 1, 1, &mCBChangeOnResize );
-	mImmediateContext->VSSetConstantBuffers( 2, 1, &mCBChangesEveryFrame );
-
-	mImmediateContext->PSSetConstantBuffers( 1, 1, &mCBChangeOnResize );
-	mImmediateContext->PSSetConstantBuffers( 2, 1, &mCBChangesEveryFrame );
+	mImmediateContext->VSSetConstantBuffers( 0, 1, &mCBChangesEveryFrame );
+	mImmediateContext->PSSetConstantBuffers( 0, 1, &mCBChangesEveryFrame );
 
 	mImmediateContext->PSSetShaderResources( 0, 1, &mTextureRV );
 	mImmediateContext->PSSetShaderResources( 1, 1, &mTextureRV );
 	mImmediateContext->PSSetShaderResources( 2, 1, &mTextureRV );
 	
-	//render cubes
+	// render cubes
+    // it's the same cube actually
 	{
-		mWorld = XMMatrixRotationY( t );
-		cb.mWorld = XMMatrixTranspose( mWorld );
-		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
-		cube.Render(mDevice, mImmediateContext);
+        cube.position = XMFLOAT3(0, 0, 0);
+        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
-		mWorld *= XMMatrixTranslation(3, 0, 0);
-		cb.mWorld = XMMatrixTranspose( mWorld );
-		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
-		cube.Render(mDevice, mImmediateContext);
+		cube.position = XMFLOAT3(3, 0, 0);
+		FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
-		mWorld *= XMMatrixTranslation(-6, 0, 0);
-		cb.mWorld = XMMatrixTranspose( mWorld );
-		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
-		cube.Render(mDevice, mImmediateContext);
+        cube.position = XMFLOAT3(-3, 0, 0);
+        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 	}
 
 	//--------------------------------------------------------------------
@@ -140,39 +180,34 @@ HRESULT TestProject::RenderScene()
 
 	//render cubes
 	{
-		mWorld = XMMatrixRotationY( t );
-		cb.mWorld = XMMatrixTranspose( mWorld );
-		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
-		cube.Render(mDevice, mImmediateContext);
+        cube.rotationEuler = XMFLOAT3( 0, totalTime * 0.0001f, 0 );
+        cube.position = XMFLOAT3(0, 0, 0);
+        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
-		mWorld *= XMMatrixTranslation(3, 0, 0);
-		cb.mWorld = XMMatrixTranspose( mWorld );
-		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
-		cube.Render(mDevice, mImmediateContext);
+        cube.position = XMFLOAT3(3, 0, 0);
+        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
-		mWorld *= XMMatrixTranslation(-6, 0, 0);
-		cb.mWorld = XMMatrixTranspose( mWorld );
-		mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
-		cube.Render(mDevice, mImmediateContext);
-	}
+        cube.position = XMFLOAT3(-3, 0, 0);
+        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+    }
 
 	mImmediateContext->VSSetShader( mVertexShaderReflection, NULL, 0 );
 	mImmediateContext->PSSetShader( mPixelShaderReflection, NULL, 0 );
 	mImmediateContext->PSSetShaderResources( 1, 1, &mRTSecondRV );
 	mImmediateContext->PSSetShaderResources( 2, 1, &mDSSecondRV );
 	
-	mWorld = XMMatrixTranslation(0,-0.3,0) * XMMatrixScaling(10,1,10);
-	cb.mWorld = XMMatrixTranspose( mWorld );
-	mImmediateContext->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
-	mImmediateContext->VSSetConstantBuffers( 2, 1, &mCBChangesEveryFrame );
+    //render plane
+    plane.position = XMFLOAT3(0, -0.3, 0);
+    plane.scale = XMFLOAT3(10, 1, 10);
+    FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
 
-	plane.Render(mDevice, mImmediateContext);
 
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
 	mImmediateContext->PSSetShaderResources( 0, 3, view );
 
 	return S_OK;
 }
+
 
 
 /*
@@ -287,22 +322,13 @@ HRESULT TestProject::InitScene()
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory( &bd, sizeof(bd) );
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(CBNeverChanges);
 	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	bd.CPUAccessFlags = 0;
-	hr = mDevice->CreateBuffer( &bd, NULL, &mCBNeverChanges );
-	if( FAILED( hr ) )
-		return hr;
-
-	bd.ByteWidth = sizeof(CBChangeOnResize);
-	hr = mDevice->CreateBuffer( &bd, NULL, &mCBChangeOnResize );
-	if( FAILED( hr ) )
-		return hr;
-
 	bd.ByteWidth = sizeof(CBChangesEveryFrame);
 	hr = mDevice->CreateBuffer( &bd, NULL, &mCBChangesEveryFrame );
 	if( FAILED( hr ) )
 		return hr;
+
 
 	// Load the Texture
 	hr = D3DX11CreateShaderResourceViewFromFile( mDevice, "seafloor.dds", NULL, NULL, &mTextureRV, NULL );
@@ -330,45 +356,12 @@ HRESULT TestProject::InitScene()
 	V_RETURN( mDevice->CreateSamplerState( &sampDesc, &mDepthSampler ) );
 
 
+    // init camera
+    mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.001, 10000.0);
+    mainCamera.setOrbitParams( 15, XMFLOAT3(0,0,0) );
+
 	// Initialize the world matrices
 	mWorld = XMMatrixIdentity();
-
-
-	// Camera handling
-	{
-		camDesc.radius = 15;
-		camDesc.phi = 0;
-		camDesc.theta = 0;
-		camDesc.vAt = XMVectorSet(0,0,0,0);
-		camDesc.vUp = XMVectorSet(0,1,0,0);
-		camDesc.fov = XM_PIDIV4;
-		camDesc.aspect = swapChainDesc.BufferDesc.Width / (FLOAT)swapChainDesc.BufferDesc.Height;
-		camDesc.nearPlane = 0.1f;
-		camDesc.farPlane = 500.0f;
-	}
-	
-
-
-	// Initialize the projection matrix
-	mProjection = camDesc.getProjMatrix();
-
-	CBChangeOnResize cbChangesOnResize;
-	cbChangesOnResize.mProjection = XMMatrixTranspose( mProjection );
-	cbChangesOnResize.mScreenParams =
-		XMFLOAT4(
-			swapChainDesc.BufferDesc.Width,
-			swapChainDesc.BufferDesc.Height,
-			camDesc.nearPlane,
-			camDesc.farPlane
-			);
-	cbChangesOnResize.mPerspectiveValues =
-		XMFLOAT4(
-		1.0f / mProjection.m[0][0],
-		1.0f / mProjection.m[1][1],
-		mProjection.m[3][2],
-		-mProjection.m[2][2]
-	);
-	mImmediateContext->UpdateSubresource( mCBChangeOnResize, 0, NULL, &cbChangesOnResize, 0, 0 );
 
 	return S_OK;
 }
@@ -455,8 +448,6 @@ HRESULT TestProject::ReleaseScene()
 
 	SAFE_RELEASE(mVertexLayout);
 
-	SAFE_RELEASE(mCBNeverChanges);
-	SAFE_RELEASE(mCBChangeOnResize);
 	SAFE_RELEASE(mCBChangesEveryFrame);
 	SAFE_RELEASE(mTextureRV);
 	SAFE_RELEASE(mSamplerLinear);
@@ -464,28 +455,4 @@ HRESULT TestProject::ReleaseScene()
 	return S_OK;
 }
 
-
-
-XMMATRIX CameraDesc::getViewMatrix()
-{
-	auto eye = getEye();
-	XMVECTOR Eye = XMVectorSet(eye.x, eye.y, eye.z, eye.w);
-
-	XMMATRIX viewMat = XMMatrixLookAtLH( Eye, vAt, vUp );
-
-	return viewMat;
-}
-
-XMFLOAT4 CameraDesc::getEye()
-{
-	return XMFLOAT4(
-		radius*cos(theta)*sin(phi),
-		radius*sin(theta),
-		radius*cos(theta)*cos(phi),
-		0.0f );
-}
-
-XMMATRIX CameraDesc::getProjMatrix()
-{
-	return XMMatrixPerspectiveFovLH( fov, aspect, nearPlane, farPlane );
-}
+//------------------------------------------------------------------------------

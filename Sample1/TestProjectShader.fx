@@ -16,24 +16,17 @@ SamplerState samBackbuffer : register( s1 );
 SamplerState samDepth : register( s2 );
 
 
-cbuffer cbNeverChanges : register( b0 )
-{ 
-};
-
-cbuffer cbChangeOnResize : register( b1 )
-{
-    matrix Projection;
-	float4 vScreenParams;
-	float4 PerspectiveValues;
-};
-
-cbuffer cbChangesEveryFrame : register( b2 )
+cbuffer cbChangesEveryFrame : register( b0 )
 {
     matrix World;
-    float4 vMeshColor;
-	matrix View;
+    matrix View;
+    matrix Projection;
 
-	float4 SSRParams; //x - numsteps, y - depth bias, z - pixelsize, w - reserved
+    float4 vScreenParams;
+	float4 PerspectiveValues;
+
+    float4 vMeshColor;
+	float4 SSRParams; //x - numsteps, y - depth bias, z - pixelsize, w - reserved	
 };
 
 

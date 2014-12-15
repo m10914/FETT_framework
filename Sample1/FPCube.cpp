@@ -104,7 +104,7 @@ HRESULT FPCube::Init(LPD3D11Device device)
 }
 
 
-HRESULT FPCube::Render(LPD3D11Device device, LPD3DDeviceContext context)
+HRESULT FPCube::Render(LPD3DDeviceContext context)
 {
 	// Set vertex buffer
 	UINT stride = sizeof( SimpleVertex );

@@ -18,6 +18,9 @@
     <Filter Include="FW\primitives">
       <UniqueIdentifier>{c8456446-ed33-46b1-b988-3bd9e06be33e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="FW\camera">
+      <UniqueIdentifier>{1a26cf1d-4111-4c75-9570-d48afaebab76}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dxapp.cpp">
@@ -35,6 +38,15 @@
     </ClCompile>
     <ClCompile Include="FPPlane.cpp">
       <Filter>FW\primitives</Filter>
+    </ClCompile>
+    <ClCompile Include="camera.cpp">
+      <Filter>FW\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="FPrimitive.cpp">
+      <Filter>FW\primitives</Filter>
+    </ClCompile>
+    <ClCompile Include="FUtil.cpp">
+      <Filter>FW</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -61,6 +73,12 @@
     </ClInclude>
     <ClInclude Include="FPPlane.h">
       <Filter>FW\primitives</Filter>
+    </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>FW\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="FUtil.h">
+      <Filter>FW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

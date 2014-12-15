@@ -62,7 +62,7 @@ HRESULT FPPlane::Init(LPD3D11Device device)
 }
 
 
-HRESULT FPPlane::Render(LPD3D11Device device, LPD3DDeviceContext context)
+HRESULT FPPlane::Render(LPD3DDeviceContext context)
 {
 	// Set vertex buffer
 	UINT stride = sizeof( SimpleVertex );

@@ -31,7 +31,7 @@ public:
 
 	// FPrimitive implementation
 	virtual	HRESULT Init(LPD3D11Device device) override;
-	virtual HRESULT Render(LPD3D11Device device, LPD3DDeviceContext context) override;
+	virtual HRESULT Render(LPD3DDeviceContext context) override;
 	virtual HRESULT Release() override;
 
 protected:

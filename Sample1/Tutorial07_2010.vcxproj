@@ -373,9 +373,12 @@
   </ItemDefinitionGroup>
   <ItemGroup />
   <ItemGroup>
+    <ClCompile Include="camera.cpp" />
     <ClCompile Include="FPCube.cpp" />
     <ClCompile Include="dxapp.cpp" />
     <ClCompile Include="FPPlane.cpp" />
+    <ClCompile Include="FPrimitive.cpp" />
+    <ClCompile Include="FUtil.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="TestProject.cpp" />
     <ClCompile Include="VertexFormats.cpp" />
@@ -384,10 +387,12 @@
     <None Include="TestProjectShader.fx" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="camera.h" />
     <ClInclude Include="FPCube.h" />
     <ClInclude Include="dxapp.h" />
     <ClInclude Include="FPPlane.h" />
     <ClInclude Include="FPrimitive.h" />
+    <ClInclude Include="FUtil.h" />
     <ClInclude Include="TestProject.h" />
     <CLInclude Include="resource.h" />
     <ClInclude Include="VertexFormats.h" />
