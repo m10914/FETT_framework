@@ -100,7 +100,7 @@ HRESULT TestProject::FrameMove()
         swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height,
         mainCamera.getNearPlane(), mainCamera.getFarPlane() );
 
-    mProjection = mainCamera.getProjMatrix();
+    XMMATRIX mProjection = mainCamera.getProjMatrix();
     cb.mProjection = XMMatrixTranspose( mProjection );
 
     cb.mScreenParams =
@@ -359,9 +359,6 @@ HRESULT TestProject::InitScene()
     // init camera
     mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.001, 10000.0);
     mainCamera.setOrbitParams( 15, XMFLOAT3(0,0,0) );
-
-	// Initialize the world matrices
-	mWorld = XMMatrixIdentity();
 
 	return S_OK;
 }
