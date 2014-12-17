@@ -38,7 +38,9 @@ TestProject::TestProject():
 	mRTSecondRTV(NULL),
 	mDSSecondTex(NULL),
 	mDSSecondRV(NULL),
-	mDSSecondDSV(NULL)
+	mDSSecondDSV(NULL),
+
+    surface(100, 100)
 {
 }
 
@@ -50,45 +52,63 @@ TestProject::~TestProject()
 
 HRESULT TestProject::FrameMove()
 {
-    if(isKeyInState(DIK_ESCAPE))
-        exit(1);
+    // keyboard
+    //----------------------------------
 
-    // get keys
+    if(isKeyDown(DIK_ESCAPE))
+        exit(1);
+    if(isKeyDown(DIK_TAB))
+        bViewCameraMain = !bViewCameraMain;
+    if(isKeyDown(DIK_C))
+        bControlCameraMain = !bControlCameraMain;
+
+    // move camera
     XMFLOAT3 offset = XMFLOAT3(0,0,0);
-    if(isKeyInState(DIK_W))
+    if(isKeyDown(DIK_W))
     {
         offset.x += deltaTime * 0.001;
     }
-    if(isKeyInState(DIK_S))
+    if(isKeyDown(DIK_S))
     {
         offset.x -= deltaTime * 0.001;
     }
-    if(isKeyInState(DIK_A))
+    if(isKeyDown(DIK_A))
     {
         offset.z += deltaTime * 0.001;
     }
-    if(isKeyInState(DIK_D))
+    if(isKeyDown(DIK_D))
     {
         offset.z -= deltaTime * 0.001;
     }
-    if(isKeyInState(DIK_E))
+    if(isKeyDown(DIK_E))
     {
         offset.y += deltaTime * 0.001;
     }
-    if(isKeyInState(DIK_Q))
+    if(isKeyDown(DIK_Q))
     {
         offset.y -= deltaTime * 0.001;
     }
 
 
-    // update camera
-    mainCamera.FrameMove(offset, XMFLOAT3(mouseDX, mouseDY, mouseDZ));
+    // update cameras
+    //---------------
+    if(bControlCameraMain)
+    {
+        mainCamera.FrameMove(offset, XMFLOAT3(mouseDX, mouseDY, mouseDZ));
+        observeCamera.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(0,0,0));
+    }
+    else
+    {
+        mainCamera.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(0,0,0));
+        observeCamera.FrameMove(offset, XMFLOAT3(mouseDX, mouseDY, mouseDZ));
+    }
 
 
     // update some buffers
     //---------------
+    DXCamera* curCamera = bViewCameraMain ? &mainCamera : &observeCamera;
 
-    cb.mView = XMMatrixTranspose( mainCamera.getViewMatrix() );
+    cb.mView = XMMatrixTranspose( curCamera->getViewMatrix() );
 
     cb.SSRParams = XMFLOAT4(
         32.0f,
@@ -99,17 +119,17 @@ HRESULT TestProject::FrameMove()
 
     cb.mScreenParams = XMFLOAT4(
         swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height,
-        mainCamera.getNearPlane(), mainCamera.getFarPlane() );
+        curCamera->getNearPlane(), curCamera->getFarPlane() );
 
-    XMMATRIX mProjection = mainCamera.getProjMatrix();
+    XMMATRIX mProjection = curCamera->getProjMatrix();
     cb.mProjection = XMMatrixTranspose( mProjection );
 
     cb.mScreenParams =
         XMFLOAT4(
         swapChainDesc.BufferDesc.Width,
         swapChainDesc.BufferDesc.Height,
-        mainCamera.getNearPlane(),
-        mainCamera.getFarPlane()
+        curCamera->getNearPlane(),
+        curCamera->getFarPlane()
         );
 
     cb.mPerspectiveValues =
@@ -192,15 +212,36 @@ HRESULT TestProject::RenderScene()
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
     }
 
+
+    //render main camera
+    XMVECTOR det;
+    XMMATRIX invViewProj = mainCamera.getViewMatrix() * mainCamera.getProjMatrix();
+    invViewProj = XMMatrixInverse( &det, invViewProj );
+    cb.vMeshColor = XMFLOAT4(1, 0, 0, 1);
+    RenderCamera(mImmediateContext, mDevice, &invViewProj);
+
+    cb.vMeshColor = XMFLOAT4(0, 1, 0 ,1);
+    RenderCamera(mImmediateContext, mDevice, &surface.projectorWorldViewInverted);
+
+
+    // render projected surface
+    surface.position = XMFLOAT3(0, 0, 0);
+    mImmediateContext->IASetInputLayout( mLayoutPNT );
+    FUtil::RenderPrimitive( &surface, mImmediateContext, cb, mCBChangesEveryFrame );
+
+
+    mImmediateContext->IASetInputLayout( mLayoutPT );
+
+    // enable reflection shaders
 	mImmediateContext->VSSetShader( mVertexShaderReflection, NULL, 0 );
 	mImmediateContext->PSSetShader( mPixelShaderReflection, NULL, 0 );
 	mImmediateContext->PSSetShaderResources( 1, 1, &mRTSecondRV );
 	mImmediateContext->PSSetShaderResources( 2, 1, &mDSSecondRV );
 	
-    //render plane
+    // render plane
     plane.position = XMFLOAT3(0, -0.3, 0);
     plane.scale = XMFLOAT3(10, 1, 10);
-    FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
+    //FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
 
 
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
@@ -208,6 +249,144 @@ HRESULT TestProject::RenderScene()
 
 	return S_OK;
 }
+
+
+void TestProject::RenderCamera(LPD3DDeviceContext context, LPD3D11Device device, XMMATRIX* invViewProjMatrix)
+{
+    ID3D11Buffer* mVertexBuffer;
+
+    //create buffers
+    HRESULT hr;
+
+    // Create vertex buffer
+    VertexFormatPT vertices[] =
+    {
+        //front
+        { XMFLOAT3( -1.0f,-1.0f, -1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
+        { XMFLOAT3( +1.0f,-1.0f, -1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
+        { XMFLOAT3( -1.0f,-1.0f, -1.0f ), XMFLOAT2( 1.0f, 1.0f ) },
+        { XMFLOAT3( -1.0f,+1.0f, -1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
+
+        { XMFLOAT3( +1.0f,-1.0f, -1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
+        { XMFLOAT3( +1.0f,+1.0f, -1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
+        { XMFLOAT3( -1.0f,+1.0f, -1.0f ), XMFLOAT2( 1.0f, 1.0f ) },
+        { XMFLOAT3( +1.0f,+1.0f, -1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
+
+        //back
+        { XMFLOAT3( -1.0f,-1.0f, +1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
+        { XMFLOAT3( +1.0f,-1.0f, +1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
+        { XMFLOAT3( -1.0f,-1.0f, +1.0f ), XMFLOAT2( 1.0f, 1.0f ) },
+        { XMFLOAT3( -1.0f,+1.0f, +1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
+
+        { XMFLOAT3( +1.0f,-1.0f, +1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
+        { XMFLOAT3( +1.0f,+1.0f, +1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
+        { XMFLOAT3( -1.0f,+1.0f, +1.0f ), XMFLOAT2( 1.0f, 1.0f ) },
+        { XMFLOAT3( +1.0f,+1.0f, +1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
+
+        //connection
+        { XMFLOAT3( -1.0f,-1.0f, -1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
+        { XMFLOAT3( -1.0f,-1.0f, +1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
+        { XMFLOAT3( +1.0f,-1.0f, -1.0f ), XMFLOAT2( 1.0f, 1.0f ) },
+        { XMFLOAT3( +1.0f,-1.0f, +1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
+
+        { XMFLOAT3( -1.0f,+1.0f, -1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
+        { XMFLOAT3( -1.0f,+1.0f, +1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
+        { XMFLOAT3( +1.0f,+1.0f, -1.0f ), XMFLOAT2( 1.0f, 1.0f ) },
+        { XMFLOAT3( +1.0f,+1.0f, +1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
+    };
+
+    D3D11_SUBRESOURCE_DATA InitData;
+    ZeroMemory( &InitData, sizeof(InitData) );
+
+    D3D11_BUFFER_DESC bd;
+    ZeroMemory( &bd, sizeof(bd) );
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(vertices);
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+
+    InitData.pSysMem = vertices;
+    hr = device->CreateBuffer( &bd, &InitData, &mVertexBuffer );
+    if( FAILED( hr ) )
+        return;
+
+
+    //render buffer with current camera
+    cb.mWorld = XMMatrixTranspose( *invViewProjMatrix );
+    context->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+
+    // Set vertex buffer
+    UINT stride = sizeof( VertexFormatPT );
+    UINT offset = 0;
+    context->IASetVertexBuffers( 0, 1, &mVertexBuffer, &stride, &offset );
+
+    // Set primitive topology
+    context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_LINELIST );
+
+    // draw dat shit
+    context->Draw( 24, 0 ); 
+
+    SAFE_RELEASE( mVertexBuffer );
+
+    return;
+}
+
+void TestProject::RenderPoints(LPD3DDeviceContext context, LPD3D11Device device, XMVECTOR* points, int numOfPoints)
+{
+    //assemble points
+    ID3D11Buffer* mVertexBuffer;
+
+    //create buffers
+    HRESULT hr;
+
+    VertexFormatPT* vertices = new VertexFormatPT[numOfPoints];
+
+    for(int i = 0; i < numOfPoints; i++)
+    {
+        auto pt = points[numOfPoints];
+        vertices[i].Pos = XMFLOAT3( pt.m128_f32[0], pt.m128_f32[1], pt.m128_f32[2] );
+        vertices[i].Tex = XMFLOAT2(0,0);
+    }
+
+
+    D3D11_SUBRESOURCE_DATA InitData;
+    ZeroMemory( &InitData, sizeof(InitData) );
+
+    D3D11_BUFFER_DESC bd;
+    ZeroMemory( &bd, sizeof(bd) );
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(vertices);
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+
+    InitData.pSysMem = vertices;
+    hr = device->CreateBuffer( &bd, &InitData, &mVertexBuffer );
+    if( FAILED( hr ) )
+        goto render_points_end;
+
+    //render buffer with current camera
+    cb.vMeshColor = XMFLOAT4(0, 0, 0, 0);
+    cb.mWorld = XMMatrixIdentity();
+    context->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
+
+    // Set vertex buffer
+    UINT stride = sizeof( VertexFormatPT );
+    UINT offset = 0;
+    context->IASetVertexBuffers( 0, 1, &mVertexBuffer, &stride, &offset );
+
+    // Set primitive topology
+    context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_POINTLIST );
+
+    // draw dat shit
+    context->Draw( numOfPoints, 0 ); 
+
+
+render_points_end:
+    delete[] vertices;
+    SAFE_RELEASE(mVertexBuffer);
+    return;
+}
+
 
 
 
@@ -224,6 +403,13 @@ HRESULT TestProject::InitScene()
 	// create objects
 	cube.Init(mDevice);
 	plane.Init(mDevice);
+
+    surface.Init(mDevice);
+    surface.setCamera(&mainCamera);
+
+    // Define the input layout
+    mLayoutPT = VertexFormatMgr::getPTLayout(mDevice);
+    mLayoutPNT = VertexFormatMgr::getPNTLayout(mDevice);
 
 
 	//----------------------------------------------------------------------------
@@ -264,10 +450,6 @@ HRESULT TestProject::InitScene()
 		pVSBlob->Release();
 		return hr;
 	}
-
-
-	// Define the input layout
-	mLayoutPT = VertexFormatMgr::getPTLayout(mDevice);
 
 
 	// Compile the pixel shader
@@ -346,8 +528,11 @@ HRESULT TestProject::InitScene()
 
 
     // init camera
-    mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.001, 10000.0);
+    mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 1.0, 100.0);
     mainCamera.setOrbitParams( 15, XMFLOAT3(0,0,0) );
+
+    observeCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.01, 1000.0);
+    observeCamera.setOrbitParams( 25, XMFLOAT3(0,0,0) );
 
 	return S_OK;
 }

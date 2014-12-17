@@ -3,6 +3,19 @@
 
 #include "FUtil.h"
 #include "FPrimitive.h"
+#include "cstdio";
+
+void FUtil::Log(char* format, ...)
+{
+    va_list argList;
+    char msg[1024];
+
+    va_start(argList, format);
+    sprintf(msg, format, argList);
+    va_end(argList);
+
+    OutputDebugString(msg);
+}
 
 
 void FUtil::RenderPrimitive(FPrimitive* primitive, LPD3DDeviceContext context, CBMatrixSet& cbset, LPD3D11Buffer buffer)

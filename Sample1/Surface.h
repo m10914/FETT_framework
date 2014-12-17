@@ -1,3 +1,10 @@
+/*
+================================================================
+
+
+================================================================
+*/
+
 
 
 #pragma warning(disable:4005)
@@ -13,27 +20,43 @@
 
 #include "dxapp.h"
 #include "FPrimitive.h"
+#include "camera.h"
 
 
 
-
-
-class FSurface : FPrimitive
+class __declspec(align(16)) FSurface : public FPrimitive
 {
 public:
     FSurface(int sizeX, int sizeY);
     ~FSurface();
 
+    XMMATRIX projectorWorldViewInverted;
 
     // FPrimitive implementation
     virtual	HRESULT Init(LPD3D11Device device) override;
     virtual HRESULT Render(LPD3DDeviceContext context) override;
     virtual HRESULT Release() override;
 
+    void setCamera(DXCamera* camera) { mCamera = camera; };
+
 protected:
 
+    
+
     // gridsize
+    DXCamera* mCamera;
     int SizeX;
     int SizeY;
+    bool bVisible;
 
+    ID3D11Buffer*                       mVertexBuffer;
+    ID3D11Buffer*                       mIndexBuffer;
+
+    //vectors storing plane and geometry
+    XMVECTOR plane, upperPlane, lowerPlane; 
+
+    void initBuffer(LPD3D11Device device);
+    bool getProjectedPointsMatrix(XMMATRIX& mat);
+    void recreateBuffer(LPD3DDeviceContext context);
+    XMVECTOR calcWorldPosOfCorner(XMFLOAT2 uv, XMMATRIX* matrix);
 };

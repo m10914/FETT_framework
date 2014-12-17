@@ -22,7 +22,7 @@
 #include "camera.h"
 #include "FPCube.h"
 #include "FPPlane.h"
-
+#include "Surface.h"
 
 
 //--------------------------------------------------------------------------------------
@@ -78,11 +78,17 @@ private:
 	// objects
 	
 	DXCamera mainCamera;
+    DXCamera observeCamera;
+    bool bViewCameraMain;
+    bool bControlCameraMain;
 
 	FPCube	cube;
 	FPPlane	plane;
+    FSurface surface;
 
     CBChangesEveryFrame cb;
+
+
 
 public:
 	TestProject();
@@ -98,6 +104,10 @@ public:
 protected:
 
 	HRESULT PrepareRT();
+    
+    //debug rendering
+    void RenderCamera(LPD3DDeviceContext context, LPD3D11Device device, XMMATRIX* invViewProjMatrix);
+    void RenderPoints(LPD3DDeviceContext context, LPD3D11Device device, XMVECTOR* points, int numOfPoints);
 
 	virtual HRESULT RenderScene() override;
 	virtual HRESULT InitScene() override;

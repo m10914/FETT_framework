@@ -24,4 +24,6 @@ public:
 
     static HRESULT CompileShaderFromFile( char* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut );
 
+
+    static void Log(char* format, ...);
 };

@@ -66,6 +66,7 @@ public:
 
     XMVECTOR getEye() { return vEye; }
     XMVECTOR getTarget() { return vAt; }
+    XMVECTOR getForwardVector();
 
     void setMode(CameraMode md) { mode = md; };
     CameraMode getMode() { return mode; };

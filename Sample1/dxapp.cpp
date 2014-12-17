@@ -35,7 +35,7 @@ DXApp::DXApp():
 
 DXApp::~DXApp()
 {
-	//destroy everything here
+	VertexFormatMgr::release();
 }
 
 
@@ -69,6 +69,9 @@ HRESULT DXApp::Init(HWND lHwnd, HINSTANCE hInstance)
 
 		hr = DIMouse->SetDataFormat(&c_dfDIMouse);
 		hr = DIMouse->SetCooperativeLevel(lHwnd, DISCL_NONEXCLUSIVE | DISCL_NOWINKEY | DISCL_FOREGROUND);
+
+        DIKeyboard->Acquire();
+        DIMouse->Acquire();
 	}
 
 	mHwnd = lHwnd;
@@ -237,11 +240,9 @@ HRESULT DXApp::PreRender()
     {
         DIMOUSESTATE mouseCurrState;
 
-        DIKeyboard->Acquire();
-        DIMouse->Acquire();
-
         DIMouse->GetDeviceState(sizeof(DIMOUSESTATE), &mouseCurrState);
-        DIKeyboard->GetDeviceState(sizeof(keyboardState),(LPVOID)&keyboardState);
+        DIKeyboard->GetDeviceState(sizeof(keyboardState), (LPVOID)&keyboardState);
+        
 
         if(bFirstCapture)
         {

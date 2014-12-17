@@ -48,8 +48,6 @@ Basic framework class for all application.
 #endif
 #endif
 
-#define KEYSTATE_DOWN 0x80
-
 
 
 struct __declspec(align(16)) CBMatrixSet
@@ -118,9 +116,9 @@ protected:
 	BYTE keyboardState[256];
 
 public:
-	bool isKeyInState(BYTE key)
+	bool isKeyDown(BYTE key)
 	{
-		return keyboardState[key] & KEYSTATE_DOWN == KEYSTATE_DOWN;
+		return keyboardState[key] & 0x80 ? TRUE : FALSE;
 	};
 
 

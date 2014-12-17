@@ -74,7 +74,7 @@ void DXCamera::FrameMove(XMFLOAT3 vOffset, XMFLOAT3 vMouse)
         phi += (float)vMouse.x * 0.001f;
         theta += (float)vMouse.y * 0.001f;
 
-        //radius += (float)vMouse.z * 0.001f;
+        radius -= (float)vMouse.z * 0.005f;
 
         vAt = XMVector3TransformCoord(vAt, XMMatrixTranslation(vOffset.x, vOffset.y, vOffset.z));
 
@@ -104,4 +104,11 @@ XMMATRIX DXCamera::getViewMatrix()
 XMMATRIX DXCamera::getProjMatrix()
 {
     return XMMatrixPerspectiveFovLH( fov, aspect, nearPlane, farPlane );
+}
+
+XMVECTOR DXCamera::getForwardVector()
+{
+    XMVECTOR vec = vAt - vEye;
+    vec.m128_f32[3] = 1.0f;
+    return XMVector4Normalize(vec);
 }

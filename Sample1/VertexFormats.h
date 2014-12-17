@@ -25,8 +25,8 @@ struct __declspec(align(16)) VertexFormatPT
 struct __declspec(align(16)) VertexFormatPNT
 {
     XMFLOAT3 Pos;
-    XMFLOAT2 Tex;
     XMFLOAT3 Normal;
+    XMFLOAT2 Tex;
 };
 
 
@@ -36,6 +36,7 @@ protected:
     static ID3D11InputLayout* mPTLayout;
     static ID3D11InputLayout* mPNTLayout;
 
+    static ID3DBlob* getShaderBlob(char* vsFuncType);
 
 public:
 
@@ -43,7 +44,7 @@ public:
     static ID3D11InputLayout* getPNTLayout(ID3D11Device* device);
 
 
-    static ID3DBlob* getShaderBlob(char* vsFuncType);
+
     static void release();
 };
 
