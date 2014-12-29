@@ -78,6 +78,7 @@ private:
 
     ID3D11RasterizerState*              mRSOrdinary;
     ID3D11RasterizerState*              mRSCullNone;
+    ID3D11RasterizerState*              mRSWireframe;
 
 	//----------------------------------
 	// objects'n'stuff

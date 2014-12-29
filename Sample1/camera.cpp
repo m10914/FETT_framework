@@ -110,5 +110,13 @@ XMVECTOR DXCamera::getForwardVector()
 {
     XMVECTOR vec = vAt - vEye;
     vec.m128_f32[3] = 1.0f;
-    return XMVector4Normalize(vec);
+    return XMVector3Normalize(vec);
+}
+
+XMVECTOR DXCamera::getRightVector()
+{
+    XMVECTOR vec = XMVectorSet(1,0,0,1);
+    XMVECTOR det;
+    XMMATRIX invViewProj = XMMatrixInverse(&det, getViewMatrix() * getProjMatrix() );
+    return XMVector3TransformCoord(vec, invViewProj);
 }

@@ -39,6 +39,10 @@ public:
 
     void setCamera(DXCamera* camera) { mCamera = camera; };
 
+    //test
+    XMFLOAT3 positions[32];
+    int numOfPositions;
+
 protected:
 
     

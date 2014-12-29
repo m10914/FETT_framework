@@ -45,7 +45,7 @@ TestProject::TestProject():
     mRSCullNone(NULL),
     mRSOrdinary(NULL),
 
-    surface(10, 10)
+    surface(100, 100)
 {
 }
 
@@ -60,8 +60,8 @@ HRESULT TestProject::FrameMove()
     // keyboard
     //----------------------------------
 
-    if(isKeyPressed(DIK_ESCAPE))
-        exit(1);
+    /*if(isKeyPressed(DIK_ESCAPE))
+        exit(1);*/
     if(isKeyPressed(DIK_TAB))
         bViewCameraMain = !bViewCameraMain;
     if(isKeyPressed(DIK_C))
@@ -252,14 +252,31 @@ HRESULT TestProject::RenderScene()
         RenderCamera(mImmediateContext, mDevice, &surface.projectorWorldViewInverted);
     }
 
+    // render debug points
+    {
+        cb.vMeshColor = XMFLOAT4(1, 1, 1, 1);
+
+        XMVECTOR* vectors = NULL;
+        vectors = (XMVECTOR*)_mm_malloc(surface.numOfPositions*sizeof(XMVECTOR), 16);
+        
+        for(int i = 0; i < surface.numOfPositions; i++)
+            vectors[i] = XMVectorSet(surface.positions[i].x, surface.positions[i].y, surface.positions[i].z, 1);
+
+        RenderPoints(mImmediateContext, mDevice, vectors, surface.numOfPositions);
+        
+        _mm_free(vectors);
+        vectors = NULL;
+    }
 
     // projected grid (with water shader)
     {
-        mImmediateContext->RSSetState( mRSCullNone );
+        mImmediateContext->RSSetState( mRSWireframe );
         mImmediateContext->IASetInputLayout( mLayoutPT );
         mImmediateContext->VSSetShader( mVertexShaderWater, NULL, 0 );
         mImmediateContext->PSSetShader( mPixelShaderWater, NULL, 0 );
 
+        //green
+        cb.vMeshColor = XMFLOAT4(0, 1, 0 ,1);
         surface.position = XMFLOAT3(0, 0, 0); 
         FUtil::RenderPrimitive( &surface, mImmediateContext, cb, mCBChangesEveryFrame );
     }
@@ -292,7 +309,7 @@ HRESULT TestProject::RenderScene()
 
 void TestProject::RenderCamera(LPD3DDeviceContext context, LPD3D11Device device, XMMATRIX* invViewProjMatrix)
 {
-    ID3D11Buffer* mVertexBuffer;
+    ID3D11Buffer* mVertexBuffer = NULL;
 
     //create buffers
     HRESULT hr;
@@ -373,17 +390,17 @@ void TestProject::RenderCamera(LPD3DDeviceContext context, LPD3D11Device device,
 void TestProject::RenderPoints(LPD3DDeviceContext context, LPD3D11Device device, XMVECTOR* points, int numOfPoints)
 {
     //assemble points
-    ID3D11Buffer* mVertexBuffer;
+    ID3D11Buffer* mVertexBuffer = NULL;
 
     //create buffers
     HRESULT hr;
 
-    VertexFormatPT* vertices = new VertexFormatPT[numOfPoints];
+    VertexFormatPT vertices[16];
 
     for(int i = 0; i < numOfPoints; i++)
     {
-        auto pt = points[numOfPoints];
-        vertices[i].Pos = XMFLOAT3( pt.m128_f32[0], pt.m128_f32[1], pt.m128_f32[2] );
+        XMVECTOR* pt = &points[i];
+        vertices[i].Pos = XMFLOAT3( pt->m128_f32[0], pt->m128_f32[1], pt->m128_f32[2] );
         vertices[i].Tex = XMFLOAT2(0,0);
     }
 
@@ -404,8 +421,8 @@ void TestProject::RenderPoints(LPD3DDeviceContext context, LPD3D11Device device,
         goto render_points_end;
 
     //render buffer with current camera
-    cb.vMeshColor = XMFLOAT4(0, 0, 0, 0);
-    cb.mWorld = XMMatrixIdentity();
+    XMMATRIX mat = XMMatrixTranslation(0,0,0);
+    cb.mWorld = XMMatrixTranspose( mat );
     context->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
 
     // Set vertex buffer
@@ -421,7 +438,6 @@ void TestProject::RenderPoints(LPD3DDeviceContext context, LPD3D11Device device,
 
 
 render_points_end:
-    delete[] vertices;
     SAFE_RELEASE(mVertexBuffer);
     return;
 }
@@ -531,6 +547,14 @@ HRESULT TestProject::InitScene()
 
     desc.CullMode = D3D11_CULL_BACK;
     hr = mDevice->CreateRasterizerState(&desc, &mRSOrdinary);
+    if(FAILED(hr))
+    {
+        MessageBox(0, "Error: cannot create rasterizer state", "Error.", 0);
+    }
+
+    desc.FillMode = D3D11_FILL_WIREFRAME;
+    desc.CullMode = D3D11_CULL_NONE;
+    hr = mDevice->CreateRasterizerState(&desc, &mRSWireframe);
     if(FAILED(hr))
     {
         MessageBox(0, "Error: cannot create rasterizer state", "Error.", 0);

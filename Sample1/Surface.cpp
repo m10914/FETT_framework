@@ -13,6 +13,7 @@
 FSurface::FSurface(int sizeX, int sizeY) : 
     SizeX(sizeX), SizeY(sizeY)
 {
+    numOfPositions = 0;
 }
 
 FSurface::~FSurface()
@@ -200,7 +201,7 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
     //------------------------
     // get displacement zone
 
-    static float amplitude = 5;
+    static float amplitude = 0.5f;
     static XMVECTOR normal = XMVectorSet(0, 1, 0, 1);
 
     XMVECTOR curPos = XMVectorSet( position.x, position.y, position.z, 1);
@@ -229,14 +230,15 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
         
     viewProjInverted = XMMatrixInverse( &determinant, viewProjInverted );
     
-    frustum[0] = XMVector4Transform( XMVectorSet(-1,-1,-1, 1), viewProjInverted );
-    frustum[1] = XMVector4Transform( XMVectorSet(+1,-1,-1, 1), viewProjInverted );
-    frustum[2] = XMVector4Transform( XMVectorSet(-1,+1,-1, 1), viewProjInverted );
-    frustum[3] = XMVector4Transform( XMVectorSet(+1,+1,-1, 1), viewProjInverted );
-    frustum[4] = XMVector4Transform( XMVectorSet(-1,-1,+1, 1), viewProjInverted );
-    frustum[5] = XMVector4Transform( XMVectorSet(+1,-1,+1, 1), viewProjInverted );
-    frustum[6] = XMVector4Transform( XMVectorSet(-1,+1,+1, 1), viewProjInverted );
-    frustum[7] = XMVector4Transform( XMVectorSet(+1,+1,+1, 1), viewProjInverted );
+    frustum[0] = XMVector3TransformCoord(XMVectorSet(-1,-1,-1, 1), viewProjInverted );
+    frustum[1] = XMVector3TransformCoord( XMVectorSet(+1,-1,-1, 1), viewProjInverted );
+    frustum[2] = XMVector3TransformCoord( XMVectorSet(-1,+1,-1, 1), viewProjInverted );
+    frustum[3] = XMVector3TransformCoord( XMVectorSet(+1,+1,-1, 1), viewProjInverted );
+    frustum[4] = XMVector3TransformCoord( XMVectorSet(-1,-1,+1, 1), viewProjInverted );
+    frustum[5] = XMVector3TransformCoord( XMVectorSet(+1,-1,+1, 1), viewProjInverted );
+    frustum[6] = XMVector3TransformCoord( XMVectorSet(-1,+1,+1, 1), viewProjInverted );
+    frustum[7] = XMVector3TransformCoord( XMVectorSet(+1,+1,+1, 1), viewProjInverted );
+
 
     // check intersections with upper_bound and lower_bound	
     for(int i=0; i<12; i++){
@@ -279,11 +281,11 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
         }	
     }
 
+
     XMMATRIX projCamView, projCamProj;
     XMVECTOR projCamPos = mCamera->getEye();
     XMVECTOR camFwd = mCamera->getForwardVector();
-    static float paramElevation = 7.0f;
-    static float paramStrength = 1.0f;
+    static float paramElevation = 1.0f;
 
     // create project camera
     float height_in_plane = ( lowerPlane.m128_f32[0]*projCamPos.m128_f32[0] +
@@ -294,9 +296,9 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
         XMVECTOR aimpoint, aimpoint2;		
         XMVECTOR dif;
 
-        if (height_in_plane < paramStrength + paramElevation)
+        if (height_in_plane < amplitude + paramElevation)
         {	
-            float multiplier = paramStrength + paramElevation - height_in_plane;
+            float multiplier = amplitude + paramElevation - height_in_plane;
             dif = XMVectorSet(lowerPlane.m128_f32[0]*multiplier, lowerPlane.m128_f32[1]*multiplier, lowerPlane.m128_f32[2]*multiplier, 0);
             projCamPos += dif;
         } 
@@ -352,10 +354,18 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
         proj_points[i].m128_f32[3] = 1.0f;
     }
     
+    //------------------ TEST ONLY
+    for(int i = 0; i < n_points; i++)
+    {
+        positions[i] = XMFLOAT3(proj_points[i].m128_f32[0], proj_points[i].m128_f32[1], proj_points[i].m128_f32[2]);
+    }
+    numOfPositions = n_points;
+
+
     XMMATRIX ccombo = projCamView * projCamProj;
     for(int i=0; i < n_points; i++)
     {
-        proj_points[i] = XMVector4Transform( proj_points[i], ccombo );
+        proj_points[i] = XMVector3TransformCoord( proj_points[i], ccombo );
     }
 
     if (n_points > 0)
