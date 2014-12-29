@@ -25,8 +25,8 @@ struct __declspec(align(16)) VertexFormatPT
 struct __declspec(align(16)) VertexFormatPNT
 {
     XMFLOAT3 Pos;
-    XMFLOAT3 Normal;
     XMFLOAT2 Tex;
+    XMFLOAT3 Normal;
 };
 
 

@@ -4,7 +4,7 @@
 */
 
 #include "dxapp.h"
-
+#include "FUtil.h"
 
 
 
@@ -69,9 +69,6 @@ HRESULT DXApp::Init(HWND lHwnd, HINSTANCE hInstance)
 
 		hr = DIMouse->SetDataFormat(&c_dfDIMouse);
 		hr = DIMouse->SetCooperativeLevel(lHwnd, DISCL_NONEXCLUSIVE | DISCL_NOWINKEY | DISCL_FOREGROUND);
-
-        DIKeyboard->Acquire();
-        DIMouse->Acquire();
 	}
 
 	mHwnd = lHwnd;
@@ -232,34 +229,68 @@ HRESULT DXApp::CreateMainGBuffer()
 
 }
 
+void DXApp::handleInput()
+{
+    DIMOUSESTATE mouseCurrState;
+
+    DIKeyboard->Acquire();
+    DIMouse->Acquire();
+
+    DIMouse->GetDeviceState(sizeof(DIMOUSESTATE), &mouseCurrState);
+    
+    BYTE keyboardState[256];
+    DIKeyboard->GetDeviceState(sizeof(keyboardState), (LPVOID)&keyboardState);
+    memset(keyboardEvents, 0, sizeof(keyboardEvents));
+
+
+    if(bFirstCapture)
+    {
+        bFirstCapture = false;
+        
+        // mouse
+        mouseDX = 0;
+        mouseDY = 0;
+        mouseDZ = 0;
+
+        // keyboard
+        // none so far
+        memset(keyboardEvents, 0, sizeof(keyboardEvents));
+    }
+    else
+    {
+        // mouse
+        mouseDX = mouseCurrState.lX;// - mouseLastState.lX;
+        mouseDZ = mouseCurrState.lZ;// - mouseLastState.lZ;
+        mouseDY = mouseCurrState.lY;// - mouseLastState.lY;
+        memcpy(mouseButtons, mouseCurrState.rgbButtons, 4*sizeof(BYTE));
+
+        // keyboard
+        for(int i = 0; i < 256; i++)
+        {
+            if(keyboardState[i] != keyboardPrevState[i])
+            {
+                //event occured!
+                if(keyboardState[i] & 0x80 ? TRUE : FALSE)
+                {
+                    keyboardEvents[i] = KE_DOWN;
+                }
+                else
+                {
+                    keyboardEvents[i] = KE_UP;
+                }
+            }
+        }
+    }
+
+    mouseLastState = mouseCurrState;
+    memcpy(keyboardPrevState, keyboardState, sizeof(keyboardState));
+}
 
 
 HRESULT DXApp::PreRender()
 {
-    // First thing - get frame move
-    {
-        DIMOUSESTATE mouseCurrState;
-
-        DIMouse->GetDeviceState(sizeof(DIMOUSESTATE), &mouseCurrState);
-        DIKeyboard->GetDeviceState(sizeof(keyboardState), (LPVOID)&keyboardState);
-        
-
-        if(bFirstCapture)
-        {
-            bFirstCapture = false;
-            mouseDX = 0;
-            mouseDY = 0;
-            mouseDZ = 0;
-        }
-        else
-        {
-            mouseDX = mouseCurrState.lX;// - mouseLastState.lX;
-            mouseDZ = mouseCurrState.lZ;// - mouseLastState.lZ;
-            mouseDY = mouseCurrState.lY;// - mouseLastState.lY;
-        }
-
-        mouseLastState = mouseCurrState;
-    }
+    //handle standard input
+    handleInput();
 
 
     if(startTime == 0)

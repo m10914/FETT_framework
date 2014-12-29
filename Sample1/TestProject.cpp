@@ -19,6 +19,8 @@ TestProject::TestProject():
 	mPixelShader(NULL),
 	mVertexShaderReflection(NULL),
 	mPixelShaderReflection(NULL),
+    mPixelShaderWater(NULL),
+    mVertexShaderWater(NULL),
 
 	mLayoutPT(NULL),
     mLayoutPNT(NULL),
@@ -40,7 +42,10 @@ TestProject::TestProject():
 	mDSSecondRV(NULL),
 	mDSSecondDSV(NULL),
 
-    surface(100, 100)
+    mRSCullNone(NULL),
+    mRSOrdinary(NULL),
+
+    surface(10, 10)
 {
 }
 
@@ -55,11 +60,11 @@ HRESULT TestProject::FrameMove()
     // keyboard
     //----------------------------------
 
-    if(isKeyDown(DIK_ESCAPE))
+    if(isKeyPressed(DIK_ESCAPE))
         exit(1);
-    if(isKeyDown(DIK_TAB))
+    if(isKeyPressed(DIK_TAB))
         bViewCameraMain = !bViewCameraMain;
-    if(isKeyDown(DIK_C))
+    if(isKeyPressed(DIK_C))
         bControlCameraMain = !bControlCameraMain;
 
     // move camera
@@ -92,6 +97,22 @@ HRESULT TestProject::FrameMove()
 
     // update cameras
     //---------------
+    
+    // keyboard camera control - if mouse is disabled somehow
+    if(!isLMBDown())
+    {
+        mouseDX = 0;
+        mouseDY = 0;
+        if(isKeyDown(DIK_I))
+            mouseDY += deltaTime * 5.0f;
+        if(isKeyDown(DIK_K))
+            mouseDY -= deltaTime * 5.0f;
+        if(isKeyDown(DIK_J))
+            mouseDX -= deltaTime * 5.0f;
+        if(isKeyDown(DIK_L))
+            mouseDX += deltaTime * 5.0f;
+    }
+
     if(bControlCameraMain)
     {
         mainCamera.FrameMove(offset, XMFLOAT3(mouseDX, mouseDY, mouseDZ));
@@ -161,6 +182,9 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->PSSetSamplers( 0, 3, aSamplers );
 
 
+    //--------------------------------------------------------------------
+    // TO TEXTURE
+
 	// set RT and clear it
 	mImmediateContext->OMSetRenderTargets( 1, &mRTSecondRTV, mDSSecondDSV);
 	float ClearColor[4] = { 0.525f, 0.525f, 0.525f, 1.0f }; // red, green, blue, alpha
@@ -168,7 +192,8 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->ClearDepthStencilView( mDSSecondDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 
 
-	// render stuff
+
+	// initial preparation
 	mImmediateContext->IASetInputLayout( mLayoutPT );
 
 	mImmediateContext->VSSetShader( mVertexShader, NULL, 0 );
@@ -181,9 +206,10 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->PSSetShaderResources( 1, 1, &mTextureRV );
 	mImmediateContext->PSSetShaderResources( 2, 1, &mTextureRV );
 	
+
 	// render cubes
     // it's the same cube actually
-	{
+	if(true){
         cube.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
@@ -194,13 +220,14 @@ HRESULT TestProject::RenderScene()
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 	}
 
+
 	//--------------------------------------------------------------------
-	// R E F L E C T
+	// TO BACKBUFFER
 
 	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView);
 
-	//render cubes
-	{
+	// render cubes
+	if(false){
         cube.rotationEuler = XMFLOAT3( 0, totalTime * 0.0001f, 0 );
         cube.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
@@ -213,35 +240,47 @@ HRESULT TestProject::RenderScene()
     }
 
 
-    //render main camera
-    XMVECTOR det;
-    XMMATRIX invViewProj = mainCamera.getViewMatrix() * mainCamera.getProjMatrix();
-    invViewProj = XMMatrixInverse( &det, invViewProj );
-    cb.vMeshColor = XMFLOAT4(1, 0, 0, 1);
-    RenderCamera(mImmediateContext, mDevice, &invViewProj);
+    // render cameras frustums
+    {
+        XMVECTOR det;
+        XMMATRIX invViewProj = mainCamera.getViewMatrix() * mainCamera.getProjMatrix();
+        invViewProj = XMMatrixInverse( &det, invViewProj );
+        cb.vMeshColor = XMFLOAT4(1, 0, 0, 1);
+        RenderCamera(mImmediateContext, mDevice, &invViewProj);
 
-    cb.vMeshColor = XMFLOAT4(0, 1, 0 ,1);
-    RenderCamera(mImmediateContext, mDevice, &surface.projectorWorldViewInverted);
-
-
-    // render projected surface
-    surface.position = XMFLOAT3(0, 0, 0);
-    mImmediateContext->IASetInputLayout( mLayoutPNT );
-    FUtil::RenderPrimitive( &surface, mImmediateContext, cb, mCBChangesEveryFrame );
+        cb.vMeshColor = XMFLOAT4(0, 1, 0 ,1);
+        RenderCamera(mImmediateContext, mDevice, &surface.projectorWorldViewInverted);
+    }
 
 
-    mImmediateContext->IASetInputLayout( mLayoutPT );
+    // projected grid (with water shader)
+    {
+        mImmediateContext->RSSetState( mRSCullNone );
+        mImmediateContext->IASetInputLayout( mLayoutPT );
+        mImmediateContext->VSSetShader( mVertexShaderWater, NULL, 0 );
+        mImmediateContext->PSSetShader( mPixelShaderWater, NULL, 0 );
 
-    // enable reflection shaders
-	mImmediateContext->VSSetShader( mVertexShaderReflection, NULL, 0 );
-	mImmediateContext->PSSetShader( mPixelShaderReflection, NULL, 0 );
-	mImmediateContext->PSSetShaderResources( 1, 1, &mRTSecondRV );
-	mImmediateContext->PSSetShaderResources( 2, 1, &mDSSecondRV );
+        surface.position = XMFLOAT3(0, 0, 0); 
+        FUtil::RenderPrimitive( &surface, mImmediateContext, cb, mCBChangesEveryFrame );
+    }
+
+
+    // SSR plane
+    {
+        mImmediateContext->IASetInputLayout( mLayoutPT );
+
+        // enable reflection shaders
+	    mImmediateContext->VSSetShader( mVertexShaderReflection, NULL, 0 );
+	    mImmediateContext->PSSetShader( mPixelShaderReflection, NULL, 0 );
+	    mImmediateContext->PSSetShaderResources( 1, 1, &mRTSecondRV );
+	    mImmediateContext->PSSetShaderResources( 2, 1, &mDSSecondRV );
 	
-    // render plane
-    plane.position = XMFLOAT3(0, -0.3, 0);
-    plane.scale = XMFLOAT3(10, 1, 10);
-    //FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
+        // render plane
+        plane.position = XMFLOAT3(0, -0.3, 0);
+        plane.scale = XMFLOAT3(10, 1, 10);
+        //FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
+    }
+
 
 
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
@@ -413,79 +452,23 @@ HRESULT TestProject::InitScene()
 
 
 	//----------------------------------------------------------------------------
-	// Create shaders, input layout and other stuff like that
+	// Create shaders
 
-	// Compile the vertex shader
+
 	ID3DBlob* pVSBlob = NULL;
-	hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob );
-	if( FAILED( hr ) )
-	{
-		MessageBox( NULL,
-			"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", "Error", MB_OK );
-		return hr;
-	}
-
-	// Create the vertex shader
-	hr = mDevice->CreateVertexShader( pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), NULL, &mVertexShader );
-	if( FAILED( hr ) )
-	{    
-		pVSBlob->Release();
-		return hr;
-	}
-
-	// Vertex shader for reflection
-	pVSBlob = NULL;
-	hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "VS_Reflection", "vs_4_0", &pVSBlob );
-	if( FAILED( hr ) )
-	{
-		MessageBox( NULL,
-			"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", "Error", MB_OK );
-		return hr;
-	}
-
-	// Create the vertex shader
-	hr = mDevice->CreateVertexShader( pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), NULL, &mVertexShaderReflection );
-	if( FAILED( hr ) )
-	{    
-		pVSBlob->Release();
-		return hr;
-	}
+    
+    FUtil::InitVertexShader( mDevice, "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShader );
+    FUtil::InitVertexShader( mDevice, "TestProjectShader.fx", "VS_Reflection", "vs_4_0", &pVSBlob, &mVertexShaderReflection );
+    FUtil::InitVertexShader( mDevice, "TestProjectShader.fx", "VS_WAT", "vs_4_0", &pVSBlob, &mVertexShaderWater );
 
 
-	// Compile the pixel shader
-	// 1st shader - simple rendering
-	
-	ID3DBlob* pPSBlob = NULL;
-	hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob );
-	if( FAILED( hr ) )
-	{
-		MessageBox( NULL,
-			"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", "Error", MB_OK );
-		return hr;
-	}
+    ID3DBlob* pPSBlob = NULL;
 
-	// Create the pixel shader
-	// 2nd shader - reflection surface
+    FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShader);
+    FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS_Reflection", "ps_4_0", &pPSBlob, &mPixelShaderReflection);
+    FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS_WAT", "ps_4_0", &pPSBlob, &mPixelShaderWater);
 
-	hr = mDevice->CreatePixelShader( pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), NULL, &mPixelShader );
-	pPSBlob->Release();
-	if( FAILED( hr ) )
-		return hr;
 
-	pPSBlob = NULL;
-	hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "PS_Reflection", "ps_4_0", &pPSBlob);
-	if( FAILED( hr ) )
-	{
-		MessageBox( NULL,
-			"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", "Error", MB_OK );
-		return hr;
-	}
-
-	// Create the pixel shader
-	hr = mDevice->CreatePixelShader( pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), NULL, &mPixelShaderReflection );
-	pPSBlob->Release();
-	if( FAILED( hr ) )
-		return hr;
 
 	//----------------------------------------------------------------------------
 	// Create the constant buffers
@@ -533,6 +516,25 @@ HRESULT TestProject::InitScene()
 
     observeCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.01, 1000.0);
     observeCamera.setOrbitParams( 25, XMFLOAT3(0,0,0) );
+
+
+    // add rasterizing states
+    D3D11_RASTERIZER_DESC desc;
+    ZeroMemory(&desc, sizeof(D3D11_RASTERIZER_DESC));
+    desc.CullMode = D3D11_CULL_NONE;
+    desc.FillMode = D3D11_FILL_SOLID;
+    hr = mDevice->CreateRasterizerState(&desc, &mRSCullNone);
+    if(FAILED(hr))
+    {
+        MessageBox(0, "Error: cannot create rasterizer state", "Error.", 0);
+    }
+
+    desc.CullMode = D3D11_CULL_BACK;
+    hr = mDevice->CreateRasterizerState(&desc, &mRSOrdinary);
+    if(FAILED(hr))
+    {
+        MessageBox(0, "Error: cannot create rasterizer state", "Error.", 0);
+    }
 
 	return S_OK;
 }
@@ -617,10 +619,12 @@ HRESULT TestProject::ReleaseScene()
 	SAFE_RELEASE(mVertexShader);
 	SAFE_RELEASE(mPixelShader);
 
-
 	SAFE_RELEASE(mCBChangesEveryFrame);
 	SAFE_RELEASE(mTextureRV);
 	SAFE_RELEASE(mSamplerLinear);
+
+    SAFE_RELEASE(mRSCullNone);
+    SAFE_RELEASE(mRSOrdinary);
 
 	return S_OK;
 }

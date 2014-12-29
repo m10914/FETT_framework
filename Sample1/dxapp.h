@@ -57,7 +57,9 @@ struct __declspec(align(16)) CBMatrixSet
     XMMATRIX mProjection;
 };
 
-
+#define KE_NONE 0
+#define KE_UP 1
+#define KE_DOWN 2
 
 
 class DXApp
@@ -113,14 +115,29 @@ protected:
 
 	bool bFirstCapture;
 	LONG mouseDX, mouseDY, mouseDZ;
-	BYTE keyboardState[256];
+	BYTE mouseButtons[4];
+    BYTE keyboardPrevState[256];
+    BYTE keyboardEvents[256]; //0 - none, 1 - up, 2 - down
+
+    void handleInput();
 
 public:
 	bool isKeyDown(BYTE key)
 	{
-		return keyboardState[key] & 0x80 ? TRUE : FALSE;
+		return keyboardPrevState[key] & 0x80 ? TRUE : FALSE;
 	};
-
+    bool isKeyPressed(BYTE key)
+    {
+        return keyboardEvents[key] == KE_DOWN;
+    };
+    bool isKeyReleased(BYTE key)
+    {
+        return keyboardEvents[key] == KE_UP;
+    };
+    bool isLMBDown()
+    {
+        return mouseButtons[0] > 0;
+    };
 
     //-----------------------------------------------------
     // measurements

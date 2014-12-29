@@ -55,6 +55,10 @@ protected:
     //vectors storing plane and geometry
     XMVECTOR plane, upperPlane, lowerPlane; 
 
+
+    //------------------------
+    // M E T H O D S
+
     void initBuffer(LPD3D11Device device);
     bool getProjectedPointsMatrix(XMMATRIX& mat);
     void recreateBuffer(LPD3DDeviceContext context);

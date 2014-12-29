@@ -45,15 +45,22 @@ struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet
 class __declspec(align(16)) TestProject : public DXApp
 {
 private:
+
+    // shaders
 	ID3D11VertexShader*                 mVertexShader;
 	ID3D11PixelShader*                  mPixelShader;
 
 	ID3D11VertexShader*                 mVertexShaderReflection;
 	ID3D11PixelShader*                  mPixelShaderReflection;
 
+    ID3D11VertexShader*                 mVertexShaderWater;
+    ID3D11PixelShader*                  mPixelShaderWater;
+
+    // input layouts pointers
     ID3D11InputLayout*                  mLayoutPT;
     ID3D11InputLayout*                  mLayoutPNT;
 
+    // shader buffers
 	ID3D11Buffer*                       mCBChangesEveryFrame;
 	
 	ID3D11ShaderResourceView*           mTextureRV;
@@ -69,14 +76,14 @@ private:
 	ID3D11ShaderResourceView*			mDSSecondRV;
 	ID3D11DepthStencilView*				mDSSecondDSV;
 
-	// other scene-related variables
-
-	XMFLOAT4                            mVMeshColor;
-
+    ID3D11RasterizerState*              mRSOrdinary;
+    ID3D11RasterizerState*              mRSCullNone;
 
 	//----------------------------------
-	// objects
+	// objects'n'stuff
 	
+    XMFLOAT4 mVMeshColor;
+
 	DXCamera mainCamera;
     DXCamera observeCamera;
     bool bViewCameraMain;

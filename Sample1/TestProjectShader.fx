@@ -205,3 +205,37 @@ float4 PS_Reflection( PS_REF_INPUT input ) : SV_Target
 
 	return float4(0.1, 0.7, 0.1, 1) * 0.6 + 0.4* reflectColor;
 }
+
+
+
+/*
+Water shader
+*/
+
+
+struct VS_INPUT_PNT
+{
+    float3 Pos : POSITION;
+    float2 Tex : TEXCOORD;
+    float3 Normal: NORMAL;
+};
+
+
+
+PS_INPUT VS_WAT( VS_INPUT_PNT input )
+{
+    PS_INPUT output = (PS_INPUT)0;
+    output.Pos = mul( input.Pos, World );
+    output.Pos = mul( output.Pos, View );
+    output.Pos = mul( output.Pos, Projection );
+    
+	output.Tex = input.Tex;
+    
+    return output;
+}
+
+
+float4 PS_WAT( PS_INPUT input) : SV_Target
+{
+    return txDiffuse.Sample( samLinear, input.Tex ) * vMeshColor;
+}

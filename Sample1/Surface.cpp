@@ -127,7 +127,7 @@ void FSurface::recreateBuffer(LPD3DDeviceContext context)
     XMMATRIX viewProjInverted;
     XMVECTOR det;
     bVisible = getProjectedPointsMatrix(viewProjInverted);
-    viewProjInverted = XMMatrixInverse( &det, viewProjInverted );
+    //viewProjInverted = XMMatrixInverse( &det, viewProjInverted );
 
     if(bVisible)
     {
@@ -142,6 +142,7 @@ void FSurface::recreateBuffer(LPD3DDeviceContext context)
         }
         verts = (VertexFormatPNT*)mapped.pData;
 
+
         //-------------------------------------------------------
 
         XMVECTOR corner0, corner1, corner2, corner3;
@@ -150,16 +151,23 @@ void FSurface::recreateBuffer(LPD3DDeviceContext context)
         corner2 = calcWorldPosOfCorner( XMFLOAT2(0,1), &viewProjInverted);
         corner3 = calcWorldPosOfCorner( XMFLOAT2(1,1), &viewProjInverted);
 
-        float du = 1.0f/float(SizeX-1);
-        float dv = 1.0f/float(SizeY-1);
+        /*FUtil::Log("Calculated corners: (%.2f %.2f %.2f %.2f); (%.2f %.2f %.2f %.2f); (%.2f %.2f %.2f %.2f); (%.2f %.2f %.2f %.2f)\n",
+            corner0.m128_f32[0],corner0.m128_f32[1],corner0.m128_f32[2],corner0.m128_f32[3],
+            corner1.m128_f32[0],corner1.m128_f32[1],corner1.m128_f32[2],corner1.m128_f32[3],
+            corner2.m128_f32[0],corner2.m128_f32[1],corner2.m128_f32[2],corner2.m128_f32[3],
+            corner3.m128_f32[0],corner3.m128_f32[1],corner3.m128_f32[2],corner3.m128_f32[3]
+            );*/
+
+        float du = 1.0f/float(SizeX);
+        float dv = 1.0f/float(SizeY);
         float u, v = 0.0f;
 
         XMFLOAT4 result;
         int i=0;
-        for(int iv=0; iv < SizeY; iv++)
+        for(int iv=0; iv < SizeY+1; iv++)
         {
             u = 0.0f;		
-            for(int iu=0; iu < SizeX; iu++)
+            for(int iu=0; iu < SizeX+1; iu++)
             {						
                 result.x = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[0] + u*corner1.m128_f32[0] ) + v*( (1.0f-u)*corner2.m128_f32[0] + u*corner3.m128_f32[0] );				
                 result.z = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[2] + u*corner1.m128_f32[2] ) + v*( (1.0f-u)*corner2.m128_f32[2] + u*corner3.m128_f32[2] );				
@@ -168,7 +176,7 @@ void FSurface::recreateBuffer(LPD3DDeviceContext context)
                 float divide = 1.0f/result.w;				
                 result.x *= divide;
                 result.z *= divide;
-
+                
                 verts[i].Pos.x = result.x;
                 verts[i].Pos.z = result.z;
                 verts[i].Pos.y = 0;
@@ -208,7 +216,7 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
 
     float x_min, y_min, x_max, y_max;
     XMVECTOR frustum[8], proj_points[24];
-    int n_points=0;
+    int n_points = 0;
     int cube[] =
     {	0,1,	0,2,	2,3,	1,3,
         0,4,	2,6,	3,7,	1,5,
@@ -216,9 +224,11 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
 
     //get inv_view_proj
     XMVECTOR determinant;
+    
     XMMATRIX viewProjInverted = mCamera->getViewMatrix() * mCamera->getProjMatrix();
+        
     viewProjInverted = XMMatrixInverse( &determinant, viewProjInverted );
-
+    
     frustum[0] = XMVector4Transform( XMVectorSet(-1,-1,-1, 1), viewProjInverted );
     frustum[1] = XMVector4Transform( XMVectorSet(+1,-1,-1, 1), viewProjInverted );
     frustum[2] = XMVector4Transform( XMVectorSet(-1,+1,-1, 1), viewProjInverted );
@@ -298,12 +308,16 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
             )
         {
             aimpoint = XMPlaneIntersectLine( plane, mCamera->getEye(), mCamera->getTarget() );
+            if(XMVectorIsNaN(aimpoint).m128_f32[0] != 0)
+                aimpoint = XMVectorSet(0,0,0,0); //parallel
         }
         else
         {
             //flipped = rendering_camera->forward - 2*normal*D3DXVec3Dot(&(rendering_camera->forward),&normal);
             XMVECTOR flipped = camFwd - 2 * normal * XMVector3Dot(camFwd, normal);
             aimpoint = XMPlaneIntersectLine( plane, mCamera->getEye(), mCamera->getEye() + flipped );
+            if(XMVectorIsNaN(aimpoint).m128_f32[0] != 0)
+                aimpoint = XMVectorSet(0,0,0,0); //parallel
         }
 
         // force the point the camera is looking at in a plane, and have the projector look at it
@@ -334,12 +348,13 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
     for(int i=0; i<n_points; i++)
     {
         // project the point onto the surface plane
-        proj_points[i] = proj_points[i] - normal*XMVector3Dot(proj_points[i], normal);	
+        proj_points[i] = proj_points[i] - normal*XMVector3Dot(proj_points[i], normal);
+        proj_points[i].m128_f32[3] = 1.0f;
     }
     
-    for(int i=0; i<n_points; i++)
+    XMMATRIX ccombo = projCamView * projCamProj;
+    for(int i=0; i < n_points; i++)
     {
-        XMMATRIX ccombo = projCamView * projCamProj;
         proj_points[i] = XMVector4Transform( proj_points[i], ccombo );
     }
 
@@ -357,10 +372,11 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
             if (proj_points[i].m128_f32[1] < y_min) y_min = proj_points[i].m128_f32[1];
         }		
 
+        //FUtil::Log("x (%.2f; %.2f), y: (%.2f; %.2f)\n", x_min, x_max, y_min, y_max);
 
         // build the packing matrix that spreads the grid across the "projection window"
         XMMATRIX pack;
-        XMMatrixSet(
+        pack = XMMatrixSet(
             x_max-x_min,	0,				0,		x_min,
             0,				y_max-y_min,	0,		y_min,
             0,				0,				1,		0,	

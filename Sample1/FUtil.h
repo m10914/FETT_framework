@@ -23,6 +23,8 @@ public:
 
 
     static HRESULT CompileShaderFromFile( char* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut );
+    static HRESULT InitVertexShader( LPD3D11Device device, char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3DBlob** blob, ID3D11VertexShader** shaderPtr);
+    static HRESULT InitPixelShader( LPD3D11Device device, char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3DBlob** blob, ID3D11PixelShader** shaderPtr);
 
 
     static void Log(char* format, ...);
