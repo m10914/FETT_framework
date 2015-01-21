@@ -11,6 +11,12 @@ Texture2D txDiffuse : register( t0 );
 Texture2D txBackbuffer : register( t1 );
 Texture2D txDepth : register( t2 );
 
+struct Pos
+{
+    float4 pos;
+};
+StructuredBuffer<Pos> gridBuffer : register( t3 );
+
 SamplerState samLinear : register( s0 );
 SamplerState samBackbuffer : register( s1 );
 SamplerState samDepth : register( s2 );
@@ -28,8 +34,6 @@ cbuffer cbChangesEveryFrame : register( b0 )
     float4 vMeshColor;
 	float4 SSRParams; //x - numsteps, y - depth bias, z - pixelsize, w - reserved	
 };
-
-
 
 /*
 ==============================================================
@@ -209,33 +213,33 @@ float4 PS_Reflection( PS_REF_INPUT input ) : SV_Target
 
 
 /*
+-----------------------------------------------------
 Water shader
+
+-----------------------------------------------------
 */
 
 
-struct VS_INPUT_PNT
+struct VS_INPUT_WAT
 {
-    float3 Pos : POSITION;
-    float2 Tex : TEXCOORD;
-    float3 Normal: NORMAL;
+    uint id : SV_VERTEXID;
 };
 
 
-
-PS_INPUT VS_WAT( VS_INPUT_PNT input )
+PS_INPUT VS_WAT(VS_INPUT_WAT input)
 {
     PS_INPUT output = (PS_INPUT)0;
-    output.Pos = mul( input.Pos, World );
-    output.Pos = mul( output.Pos, View );
-    output.Pos = mul( output.Pos, Projection );
-    
-	output.Tex = input.Tex;
-    
+
+    output.Pos = mul(gridBuffer[input.id].pos, World);
+    output.Pos = mul(output.Pos, View);
+    output.Pos = mul(output.Pos, Projection);
+
     return output;
 }
 
 
-float4 PS_WAT( PS_INPUT input) : SV_Target
+
+float4 PS_WAT( PS_INPUT input ) : SV_Target
 {
     return txDiffuse.Sample( samLinear, input.Tex ) * vMeshColor;
 }

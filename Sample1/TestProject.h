@@ -3,10 +3,15 @@
 
 ====================================================================
 */
+
+
 #pragma once
 
 #pragma warning(disable:4005)
 //#define _XM_NO_INTRINSICS_ 1
+
+
+#ifdef PROJ_TESTPROJECT
 
 #include <windows.h>
 #include <d3d11.h>
@@ -62,11 +67,19 @@ private:
 
     // shader buffers
 	ID3D11Buffer*                       mCBChangesEveryFrame;
+    ID3D11Buffer*                       mCBforCS;
 	
 	ID3D11ShaderResourceView*           mTextureRV;
 	ID3D11SamplerState*                 mSamplerLinear;
 	ID3D11SamplerState*					mBackbufferSampler;
 	ID3D11SamplerState*					mDepthSampler;
+
+    // compute
+    ID3D11ComputeShader*                mCS;
+    ID3D11Buffer*                       mGridBuffer;
+    ID3D11ShaderResourceView*           mGridBufferSRV;
+    ID3D11UnorderedAccessView*          mGridBufferUAV;
+
 
 	// alternative render target
 	ID3D11Texture2D*					mRTSecondTex;
@@ -124,3 +137,4 @@ protected:
 };
 
 
+#endif PROJ_TESTPROJECT

@@ -61,6 +61,10 @@ struct __declspec(align(16)) CBMatrixSet
 #define KE_UP 1
 #define KE_DOWN 2
 
+class DXApp;
+
+DXApp* initApplication(); //custom entry point
+
 
 class DXApp
 {
@@ -155,5 +159,4 @@ private:
     double lastFrameTime;
     double ticksPerSecond;
 };
-
 

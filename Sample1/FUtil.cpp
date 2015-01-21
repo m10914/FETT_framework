@@ -79,7 +79,7 @@ HRESULT FUtil::InitPixelShader(LPD3D11Device device, char* fileName, LPCSTR entr
 HRESULT FUtil::InitVertexShader(LPD3D11Device device, char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3DBlob** blob, ID3D11VertexShader** shaderPtr)
 {
     HRESULT hr;
-    hr = FUtil::CompileShaderFromFile( "TestProjectShader.fx", "VS", "vs_4_0", blob );
+    hr = FUtil::CompileShaderFromFile( fileName, entryPoint, shaderModel, blob );
     if( FAILED( hr ) )
     {
         MessageBox( NULL,

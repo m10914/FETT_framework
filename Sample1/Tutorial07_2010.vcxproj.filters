@@ -94,6 +94,9 @@
     <None Include="TestProjectShader.fx">
       <Filter>TestProject</Filter>
     </None>
+    <None Include="ProjectedGrid.hlsl">
+      <Filter>TestProject</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="VertexFormatsInitializer.fx">

@@ -224,9 +224,6 @@ HRESULT DXApp::CreateMainGBuffer()
 	V_RETURN(hr);
 
 
-
-	
-
 }
 
 void DXApp::handleInput()

@@ -9,8 +9,7 @@ Entry point.
 #include <windows.h>
 #include "resource.h"
 
-#include "TestProject.h"
-
+#include "dxapp.h"
 
 
 //--------------------------------------------------------------------------------------
@@ -37,7 +36,7 @@ LRESULT CALLBACK    WndProc( HWND, UINT, WPARAM, LPARAM );
 //--------------------------------------------------------------------------------------
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow )
 {
-	application = new TestProject();
+    application = initApplication();
 
     UNREFERENCED_PARAMETER( hPrevInstance );
     UNREFERENCED_PARAMETER( lpCmdLine );

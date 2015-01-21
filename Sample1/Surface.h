@@ -23,11 +23,27 @@
 #include "camera.h"
 
 
+// structure to be processed in compute shader
+// and used in vertex shader as main input
+#define GRID_DIMENSION 128
+
+struct __declspec(align(16)) CBForCS
+{
+    XMFLOAT4 dTexcoord;
+
+    XMFLOAT4 vCorner0;
+    XMFLOAT4 vCorner1;
+    XMFLOAT4 vCorner2;
+    XMFLOAT4 vCorner3;
+};
+
+
+
 
 class __declspec(align(16)) FSurface : public FPrimitive
 {
 public:
-    FSurface(int sizeX, int sizeY);
+    FSurface();
     ~FSurface();
 
     XMMATRIX projectorWorldViewInverted;
@@ -38,6 +54,8 @@ public:
     virtual HRESULT Release() override;
 
     void setCamera(DXCamera* camera) { mCamera = camera; };
+
+    bool fillConstantBuffer(CBForCS& buffrer);
 
     //test
     XMFLOAT3 positions[32];
@@ -53,7 +71,6 @@ protected:
     int SizeY;
     bool bVisible;
 
-    ID3D11Buffer*                       mVertexBuffer;
     ID3D11Buffer*                       mIndexBuffer;
 
     //vectors storing plane and geometry
@@ -65,6 +82,5 @@ protected:
 
     void initBuffer(LPD3D11Device device);
     bool getProjectedPointsMatrix(XMMATRIX& mat);
-    void recreateBuffer(LPD3DDeviceContext context);
     XMVECTOR calcWorldPosOfCorner(XMFLOAT2 uv, XMMATRIX* matrix);
 };

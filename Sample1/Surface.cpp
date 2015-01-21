@@ -10,8 +10,8 @@
 #include "FUtil.h"
 
 
-FSurface::FSurface(int sizeX, int sizeY) : 
-    SizeX(sizeX), SizeY(sizeY)
+FSurface::FSurface() : 
+    SizeX(GRID_DIMENSION), SizeY(GRID_DIMENSION)
 {
     numOfPositions = 0;
 }
@@ -30,73 +30,41 @@ void FSurface::initBuffer(LPD3D11Device device)
     //----------------------------------------------------
     // vertex buffer
 
-    // Create vertex buffer
-    int gridX = SizeX + 1;
-    int gridY = SizeY + 1;
-    int total = gridX * gridY;
-
-    //alloc
-    VertexFormatPNT* vertices = new VertexFormatPNT[total];
-
-    static double size = 10.0;
-
-    for(int i = 0; i < gridX; i++)
-        for(int j = 0; j < gridY; j++)
-        {
-            vertices[i + j*gridX].Pos = XMFLOAT3(
-                (float)(i-gridX*0.5f)*(size/gridX),
-                0,
-                (float)(j-gridY*0.5f)*(size/gridY)
-                );
-            vertices[i + j*gridX].Normal = XMFLOAT3(0, 1, 0);
-            vertices[i + j*gridX].Tex = XMFLOAT2(0, 0);
-        }
-
-    D3D11_BUFFER_DESC bd;
-    ZeroMemory( &bd, sizeof(bd) );
-    bd.Usage = D3D11_USAGE_DYNAMIC;
-    bd.ByteWidth = sizeof( VertexFormatPNT ) * total;
-    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    bd.MiscFlags = 0;
-    D3D11_SUBRESOURCE_DATA InitData;
-    ZeroMemory( &InitData, sizeof(InitData) );
-    InitData.pSysMem = vertices;
-    hr = device->CreateBuffer( &bd, &InitData, &mVertexBuffer );
-    if( FAILED( hr ) )
-        return;
-
-    //free
-    delete [] vertices;
-
+    // none - being created on compute shader
 
     //---------------------------------------------------------
     // index buffer
 
-    int totalInd = 6 * SizeX * SizeY;
+    int totalInd = 6 * (SizeX-1) * (SizeY-1);
     WORD *indices = new WORD[totalInd];
     int i = 0;
     {
-        for(int v=0; v < SizeY; v++){
-            for(int u=0; u < SizeX; u++){
+        for(int v=0; v < (SizeY-1); v++){
+            for(int u=0; u < (SizeX-1); u++){
 
                 // face 1 |/
-                indices[i++]	= v*gridX + u;
-                indices[i++]	= (v+1)*gridX + u;
-                indices[i++]	= v*gridX + u + 1;
+                indices[i++]	= v*SizeX + u;
+                indices[i++]	= (v+1)*SizeX + u;
+                indices[i++]	= v*SizeX + u + 1;
 
                 // face 2 /|
-                indices[i++]	= (v+1)*gridX + u;
-                indices[i++]	= (v+1)*gridX + u + 1;
-                indices[i++]	= v*gridX + u + 1;
+                indices[i++]	= (v+1)*SizeX + u;
+                indices[i++]	= (v+1)*SizeX + u + 1;
+                indices[i++]	= v*SizeX + u + 1;
             }
         }
     }
 
+    D3D11_BUFFER_DESC bd;
+    ZeroMemory(&bd, sizeof(bd));
+    bd.MiscFlags = 0;
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof( WORD ) * totalInd;
     bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
     bd.CPUAccessFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA InitData;
+    ZeroMemory(&InitData, sizeof(InitData));
     InitData.pSysMem = indices;
     hr = device->CreateBuffer( &bd, &InitData, &mIndexBuffer );
 
@@ -123,41 +91,44 @@ XMVECTOR FSurface::calcWorldPosOfCorner(XMFLOAT2 uv, XMMATRIX* matrix)
     return worldPos;
 }
 
-void FSurface::recreateBuffer(LPD3DDeviceContext context)
+
+bool FSurface::fillConstantBuffer(CBForCS& buffrer)
 {
     XMMATRIX viewProjInverted;
     XMVECTOR det;
     bVisible = getProjectedPointsMatrix(viewProjInverted);
     //viewProjInverted = XMMatrixInverse( &det, viewProjInverted );
 
-    if(bVisible)
+    if (bVisible)
     {
-        //change the buffer
-        VertexFormatPNT* verts = NULL;
+        //-------------------------------------------------------
+
+        XMVECTOR corner0, corner1, corner2, corner3;
+        corner0 = calcWorldPosOfCorner(XMFLOAT2(0, 0), &viewProjInverted);
+        corner1 = calcWorldPosOfCorner(XMFLOAT2(1, 0), &viewProjInverted);
+        corner2 = calcWorldPosOfCorner(XMFLOAT2(0, 1), &viewProjInverted);
+        corner3 = calcWorldPosOfCorner(XMFLOAT2(1, 1), &viewProjInverted);
+
+        float du = 1.0f / float(SizeX);
+        float dv = 1.0f / float(SizeY);
+
+        // change the buffer
+
+        buffrer.dTexcoord = XMFLOAT4(du, dv, 0, 0);
+        buffrer.vCorner0 = XMFLOAT4(corner0.m128_f32[0], corner0.m128_f32[1], corner0.m128_f32[2], corner0.m128_f32[3]);
+        buffrer.vCorner1 = XMFLOAT4(corner1.m128_f32[0], corner1.m128_f32[1], corner1.m128_f32[2], corner1.m128_f32[3]);
+        buffrer.vCorner2 = XMFLOAT4(corner2.m128_f32[0], corner2.m128_f32[1], corner2.m128_f32[2], corner2.m128_f32[3]);
+        buffrer.vCorner3 = XMFLOAT4(corner3.m128_f32[0], corner3.m128_f32[1], corner3.m128_f32[2], corner3.m128_f32[3]);
+
+        /*VertexFormatPNT* verts = NULL;
         D3D11_MAPPED_SUBRESOURCE mapped;
         HRESULT hr = context->Map( mVertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &mapped);
         if(hr == E_FAIL)
         {
-            bVisible = false;
-            return;
+        bVisible = false;
+        return;
         }
         verts = (VertexFormatPNT*)mapped.pData;
-
-
-        //-------------------------------------------------------
-
-        XMVECTOR corner0, corner1, corner2, corner3;
-        corner0 = calcWorldPosOfCorner( XMFLOAT2(0,0), &viewProjInverted);
-        corner1 = calcWorldPosOfCorner( XMFLOAT2(1,0), &viewProjInverted);
-        corner2 = calcWorldPosOfCorner( XMFLOAT2(0,1), &viewProjInverted);
-        corner3 = calcWorldPosOfCorner( XMFLOAT2(1,1), &viewProjInverted);
-
-        /*FUtil::Log("Calculated corners: (%.2f %.2f %.2f %.2f); (%.2f %.2f %.2f %.2f); (%.2f %.2f %.2f %.2f); (%.2f %.2f %.2f %.2f)\n",
-            corner0.m128_f32[0],corner0.m128_f32[1],corner0.m128_f32[2],corner0.m128_f32[3],
-            corner1.m128_f32[0],corner1.m128_f32[1],corner1.m128_f32[2],corner1.m128_f32[3],
-            corner2.m128_f32[0],corner2.m128_f32[1],corner2.m128_f32[2],corner2.m128_f32[3],
-            corner3.m128_f32[0],corner3.m128_f32[1],corner3.m128_f32[2],corner3.m128_f32[3]
-            );*/
 
         float du = 1.0f/float(SizeX);
         float dv = 1.0f/float(SizeY);
@@ -167,31 +138,33 @@ void FSurface::recreateBuffer(LPD3DDeviceContext context)
         int i=0;
         for(int iv=0; iv < SizeY+1; iv++)
         {
-            u = 0.0f;		
-            for(int iu=0; iu < SizeX+1; iu++)
-            {						
-                result.x = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[0] + u*corner1.m128_f32[0] ) + v*( (1.0f-u)*corner2.m128_f32[0] + u*corner3.m128_f32[0] );				
-                result.z = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[2] + u*corner1.m128_f32[2] ) + v*( (1.0f-u)*corner2.m128_f32[2] + u*corner3.m128_f32[2] );				
-                result.w = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[3] + u*corner1.m128_f32[3] ) + v*( (1.0f-u)*corner2.m128_f32[3] + u*corner3.m128_f32[3] );	
+        u = 0.0f;
+        for(int iu=0; iu < SizeX+1; iu++)
+        {
+        result.x = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[0] + u*corner1.m128_f32[0] ) + v*( (1.0f-u)*corner2.m128_f32[0] + u*corner3.m128_f32[0] );
+        result.z = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[2] + u*corner1.m128_f32[2] ) + v*( (1.0f-u)*corner2.m128_f32[2] + u*corner3.m128_f32[2] );
+        result.w = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[3] + u*corner1.m128_f32[3] ) + v*( (1.0f-u)*corner2.m128_f32[3] + u*corner3.m128_f32[3] );
 
-                float divide = 1.0f/result.w;				
-                result.x *= divide;
-                result.z *= divide;
-                
-                verts[i].Pos.x = result.x;
-                verts[i].Pos.z = result.z;
-                verts[i].Pos.y = 0;
+        float divide = 1.0f/result.w;
+        result.x *= divide;
+        result.z *= divide;
 
-                i++;
-                u += du;
-            }
-            v += dv;			
+        verts[i].Pos.x = result.x;
+        verts[i].Pos.z = result.z;
+        verts[i].Pos.y = 0;
+
+        i++;
+        u += du;
+        }
+        v += dv;
         }
 
         //-------------------------------------------------------
 
-        context->Unmap( mVertexBuffer, NULL );
+        context->Unmap( mVertexBuffer, NULL );*/
     }
+
+    return bVisible;
 }
 
 
@@ -413,16 +386,13 @@ HRESULT FSurface::Init(LPD3D11Device device)
 
 HRESULT FSurface::Render(LPD3DDeviceContext context)
 {
-    //recreate buffer
-    //temporary measure, needs to be done on GPU completely
-    recreateBuffer(context);
-    if(!bVisible) return S_OK;
-
-
     // Set vertex buffer
     UINT stride = sizeof( VertexFormatPNT );
     UINT offset = 0;
-    context->IASetVertexBuffers( 0, 1, &mVertexBuffer, &stride, &offset );
+    //context->IASetVertexBuffers( 0, 1, &mVertexBuffer, &stride, &offset );
+
+    // Null vertex buffer - actual vertices info will be counted in compute shader
+    context->IASetVertexBuffers(0, 0, NULL, &offset, &offset);
 
     // Set index buffer
     context->IASetIndexBuffer( mIndexBuffer, DXGI_FORMAT_R16_UINT, 0 );
@@ -431,14 +401,13 @@ HRESULT FSurface::Render(LPD3DDeviceContext context)
     context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 
     // draw dat shit
-    context->DrawIndexed( 6 * SizeX * SizeY, 0, 0 );
+    context->DrawIndexed( 6 * (SizeX-1) * (SizeY-1), 0, 0 );
     
     return S_OK;
 }
 
 HRESULT FSurface::Release()
 {
-    SAFE_RELEASE(mVertexBuffer);
     SAFE_RELEASE(mIndexBuffer);
 
     return S_OK;

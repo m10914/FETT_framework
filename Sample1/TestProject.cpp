@@ -4,6 +4,8 @@
 ====================================================================
 */
 
+#ifdef PROJ_TESTPROJECT
+
 
 #include "TestProject.h"
 
@@ -13,19 +15,17 @@
 
 
 
+DXApp* initApplication()
+{
+    return new TestProject();
+}
+
+
 
 TestProject::TestProject():
-	mVertexShader(NULL),
-	mPixelShader(NULL),
-	mVertexShaderReflection(NULL),
-	mPixelShaderReflection(NULL),
-    mPixelShaderWater(NULL),
-    mVertexShaderWater(NULL),
 
 	mLayoutPT(NULL),
     mLayoutPNT(NULL),
-
-	mCBChangesEveryFrame(NULL),
 
 	mTextureRV(NULL),
 	
@@ -43,10 +43,32 @@ TestProject::TestProject():
 	mDSSecondDSV(NULL),
 
     mRSCullNone(NULL),
-    mRSOrdinary(NULL),
-
-    surface(100, 100)
+    mRSOrdinary(NULL)
 {
+    mVertexShader = NULL;
+    mPixelShader = NULL;
+
+    mVertexShaderReflection = NULL;
+    mPixelShaderReflection = NULL;
+
+    mVertexShaderWater = NULL;
+    mPixelShaderWater = NULL;
+
+
+    mCBChangesEveryFrame = NULL;
+    mCBforCS = NULL;
+
+
+    //----------------------------------------------------
+    // projected grid
+
+    surface = FSurface();
+
+    // compute shader for projected grid
+    mCS = NULL;
+    mGridBuffer = NULL;
+    mGridBufferSRV = NULL;
+    mGridBufferUAV = NULL;
 }
 
 TestProject::~TestProject()
@@ -227,7 +249,10 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView);
 
 	// render cubes
-	if(false){
+	if(true){
+
+        mImmediateContext->RSSetState( mRSOrdinary );
+
         cube.rotationEuler = XMFLOAT3( 0, totalTime * 0.0001f, 0 );
         cube.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
@@ -241,7 +266,7 @@ HRESULT TestProject::RenderScene()
 
 
     // render cameras frustums
-    {
+    if(!bViewCameraMain){
         XMVECTOR det;
         XMMATRIX invViewProj = mainCamera.getViewMatrix() * mainCamera.getProjMatrix();
         invViewProj = XMMatrixInverse( &det, invViewProj );
@@ -268,17 +293,50 @@ HRESULT TestProject::RenderScene()
         vectors = NULL;
     }
 
-    // projected grid (with water shader)
-    {
-        mImmediateContext->RSSetState( mRSWireframe );
-        mImmediateContext->IASetInputLayout( mLayoutPT );
-        mImmediateContext->VSSetShader( mVertexShaderWater, NULL, 0 );
-        mImmediateContext->PSSetShader( mPixelShaderWater, NULL, 0 );
+    // projected grid (along with water shader)
+    CBForCS cbSurface;
+    bool bGrid = surface.fillConstantBuffer(cbSurface);
+    if(bGrid) {
 
-        //green
-        cb.vMeshColor = XMFLOAT4(0, 1, 0 ,1);
-        surface.position = XMFLOAT3(0, 0, 0); 
-        FUtil::RenderPrimitive( &surface, mImmediateContext, cb, mCBChangesEveryFrame );
+        //--------------------------------
+        // do GPU computing     
+        mImmediateContext->UpdateSubresource(mCBforCS, 0, NULL, &cbSurface, 0, 0);
+        mImmediateContext->CSSetShader(mCS, NULL, 0);
+
+        // bind resources
+        ID3D11UnorderedAccessView* aUAViews[1] = { mGridBufferUAV };
+        mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
+        mImmediateContext->CSSetConstantBuffers(0, 1, &mCBforCS);
+
+        // launch!
+        int tG = ceil(GRID_DIMENSION/16.f);
+        mImmediateContext->Dispatch(tG, tG, 1); //numthreads(16,16,1)
+
+        // unbind
+        ID3D11UnorderedAccessView* ppUAViewNULL[1] = { NULL };
+        mImmediateContext->CSSetUnorderedAccessViews(0, 1, ppUAViewNULL, (UINT*)(&ppUAViewNULL));
+
+
+
+        //----------------------------------
+        // do rendering
+        
+        // bind computed buffer
+        ID3D11ShaderResourceView* aRViews[1] = { mGridBufferSRV };
+        mImmediateContext->VSSetShaderResources(3, 1, aRViews);
+        
+        mImmediateContext->RSSetState( mRSWireframe );
+        mImmediateContext->IASetInputLayout( NULL );
+
+        mImmediateContext->VSSetShader(mVertexShaderWater, NULL, 0);
+        mImmediateContext->PSSetShader(mPixelShaderWater, NULL, 0);
+            
+        cb.vMeshColor = XMFLOAT4(0, 1, 0, 1);
+        surface.position = XMFLOAT3(0, 0, 0);
+        FUtil::RenderPrimitive(&surface, mImmediateContext, cb, mCBChangesEveryFrame);
+
+        ID3D11ShaderResourceView* aRViewsNULL[1] = { NULL };
+        mImmediateContext->VSSetShaderResources(3, 1, aRViewsNULL);
     }
 
 
@@ -485,7 +543,6 @@ HRESULT TestProject::InitScene()
     FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS_WAT", "ps_4_0", &pPSBlob, &mPixelShaderWater);
 
 
-
 	//----------------------------------------------------------------------------
 	// Create the constant buffers
 
@@ -559,6 +616,72 @@ HRESULT TestProject::InitScene()
     {
         MessageBox(0, "Error: cannot create rasterizer state", "Error.", 0);
     }
+
+
+
+    //---------------------------------------
+    // compute shader initialization
+
+    ID3DBlob* pCSBlob = NULL;
+    hr = FUtil::CompileShaderFromFile("ProjectedGrid.hlsl", "CSMain", "cs_4_0", &pCSBlob);
+    if (FAILED(hr))
+    {
+        FUtil::Log("Error: cannot compile compute shader for projected grid");
+        return hr;
+    }
+    V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mCS));
+    
+
+
+    //create constant buffer
+    ZeroMemory(&bd, sizeof(bd));
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    bd.CPUAccessFlags = 0;
+    bd.ByteWidth = sizeof(CBForCS);
+    hr = mDevice->CreateBuffer(&bd, NULL, &mCBforCS);
+    if (FAILED(hr))
+        return hr;
+
+
+    // create buffer
+    ZeroMemory(&bd, sizeof(bd));
+    bd.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+    bd.ByteWidth = GRID_DIMENSION * GRID_DIMENSION * sizeof(float)*4;
+    bd.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bd.StructureByteStride = sizeof(float)*4;
+    bd.Usage = D3D11_USAGE_DEFAULT;
+
+    float* arr = new float[4*GRID_DIMENSION*GRID_DIMENSION];
+    memset(arr, 0, sizeof(arr));
+    D3D11_SUBRESOURCE_DATA InitData;
+    InitData.pSysMem = arr;
+    
+    if (FAILED(mDevice->CreateBuffer(&bd, &InitData, &mGridBuffer)))
+    {
+        FUtil::Log("Error: cannot create buffer for projected grid");
+        return hr;
+    }
+    delete [] arr;
+
+    // create views
+    D3D11_SHADER_RESOURCE_VIEW_DESC DescRV;
+    ZeroMemory(&DescRV, sizeof(DescRV));
+    DescRV.Format = DXGI_FORMAT_UNKNOWN;
+    DescRV.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+    DescRV.Buffer.FirstElement = 0;
+    DescRV.Buffer.NumElements = bd.ByteWidth / bd.StructureByteStride;
+    mDevice->CreateShaderResourceView(mGridBuffer, &DescRV, &mGridBufferSRV);
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC DescUAV;
+    ZeroMemory(&DescUAV, sizeof(D3D11_UNORDERED_ACCESS_VIEW_DESC));
+    DescUAV.Format = DXGI_FORMAT_UNKNOWN;
+    DescUAV.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    DescUAV.Buffer.FirstElement = 0;
+    DescUAV.Buffer.NumElements = bd.ByteWidth / bd.StructureByteStride;
+    V_RETURN(mDevice->CreateUnorderedAccessView(mGridBuffer, &DescUAV, &mGridBufferUAV));
+
+
 
 	return S_OK;
 }
@@ -634,7 +757,6 @@ HRESULT TestProject::PrepareRT()
 
 
 
-
 HRESULT TestProject::ReleaseScene()
 {
 	cube.Release();
@@ -643,6 +765,9 @@ HRESULT TestProject::ReleaseScene()
 	SAFE_RELEASE(mVertexShader);
 	SAFE_RELEASE(mPixelShader);
 
+    SAFE_RELEASE(mVertexShaderReflection);
+    SAFE_RELEASE(mPixelShaderReflection);
+
 	SAFE_RELEASE(mCBChangesEveryFrame);
 	SAFE_RELEASE(mTextureRV);
 	SAFE_RELEASE(mSamplerLinear);
@@ -650,7 +775,26 @@ HRESULT TestProject::ReleaseScene()
     SAFE_RELEASE(mRSCullNone);
     SAFE_RELEASE(mRSOrdinary);
 
+
+    // compute shaders and resources
+    surface.Release();
+
+    SAFE_RELEASE(mCBforCS);
+
+    SAFE_RELEASE(mVertexShaderWater);
+    SAFE_RELEASE(mPixelShaderWater);
+
+
 	return S_OK;
 }
 
 //------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+#endif //PROJ_TESTPROJECT
