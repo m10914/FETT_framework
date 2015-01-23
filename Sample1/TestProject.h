@@ -55,6 +55,9 @@ private:
 	ID3D11VertexShader*                 mVertexShader;
 	ID3D11PixelShader*                  mPixelShader;
 
+    ID3D11VertexShader*                 mVertexShaderQuad;
+    ID3D11PixelShader*                  mPixelShaderQuad;
+
 	ID3D11VertexShader*                 mVertexShaderReflection;
 	ID3D11PixelShader*                  mPixelShaderReflection;
 
@@ -129,6 +132,8 @@ protected:
     //debug rendering
     void RenderCamera(LPD3DDeviceContext context, LPD3D11Device device, XMMATRIX* invViewProjMatrix);
     void RenderPoints(LPD3DDeviceContext context, LPD3D11Device device, XMVECTOR* points, int numOfPoints);
+    void RenderQuad(LPD3DDeviceContext context, LPD3D11Device device, XMFLOAT2 offset, XMFLOAT2 relativeSize);
+
 
 	virtual HRESULT RenderScene() override;
 	virtual HRESULT InitScene() override;

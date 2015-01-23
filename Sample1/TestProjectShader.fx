@@ -4,18 +4,28 @@
 ============================================================
 */
 
+
 //--------------------------------------------------------------------------------------
 // Constant Buffer Variables
 //--------------------------------------------------------------------------------------
-Texture2D txDiffuse : register( t0 );
-Texture2D txBackbuffer : register( t1 );
-Texture2D txDepth : register( t2 );
 
 struct Pos
 {
     float4 pos;
 };
-StructuredBuffer<Pos> gridBuffer : register( t3 );
+
+
+
+Texture2D txDiffuse : register( t0 );
+Texture2D txBackbuffer : register( t1 );
+Texture2D txDepth : register( t2 );
+
+StructuredBuffer<Pos> gridBuffer : register(t3);
+
+Texture2D txDisplacement : register(t4);
+Texture2D txRipple : register(t5);
+
+
 
 SamplerState samLinear : register( s0 );
 SamplerState samBackbuffer : register( s1 );
@@ -34,6 +44,7 @@ cbuffer cbChangesEveryFrame : register( b0 )
     float4 vMeshColor;
 	float4 SSRParams; //x - numsteps, y - depth bias, z - pixelsize, w - reserved	
 };
+
 
 /*
 ==============================================================
@@ -72,7 +83,31 @@ PS_INPUT VS( VS_INPUT input )
 
 float4 PS( PS_INPUT input) : SV_Target
 {
-    return txDiffuse.Sample( samLinear, input.Tex ) * vMeshColor;
+    return float4(txDiffuse.Sample( samLinear, input.Tex ).xyz, 1) * vMeshColor;
+}
+
+
+/*
+==============================================================
+Quad shader
+
+
+==============================================================
+*/
+
+PS_INPUT VS_QUAD(VS_INPUT input)
+{
+    PS_INPUT output = (PS_INPUT)0;
+
+    output.Pos = float4(input.Pos.xy, 0, 1);
+    output.Tex = input.Tex;
+
+    return output;
+}
+
+float4 PS_QUAD(PS_INPUT input) : SV_Target
+{
+    return float4(txDiffuse.SampleLevel(samLinear, input.Tex, 0).xyz, 1);
 }
 
 
@@ -224,6 +259,7 @@ struct VS_INPUT_WAT
 {
     uint id : SV_VERTEXID;
 };
+#define UV_SCALE 15
 
 
 PS_INPUT VS_WAT(VS_INPUT_WAT input)
@@ -231,8 +267,18 @@ PS_INPUT VS_WAT(VS_INPUT_WAT input)
     PS_INPUT output = (PS_INPUT)0;
 
     output.Pos = mul(gridBuffer[input.id].pos, World);
+
+    // intermediate texture coordinates for displacement map
+    float2 tCoord = float2(output.Pos.xz / UV_SCALE);
+    float3 displacement = txDisplacement.SampleLevel(samLinear, tCoord, 0).xyz;
+    output.Pos.xyz += displacement / 500;
+
+    output.Tex = float2(output.Pos.xz / UV_SCALE);
+
     output.Pos = mul(output.Pos, View);
     output.Pos = mul(output.Pos, Projection);
+
+    
 
     return output;
 }
@@ -241,5 +287,9 @@ PS_INPUT VS_WAT(VS_INPUT_WAT input)
 
 float4 PS_WAT( PS_INPUT input ) : SV_Target
 {
-    return txDiffuse.Sample( samLinear, input.Tex ) * vMeshColor;
+    return float4(0, 0.2, 1, 1);
+    
+    //float4(txDisplacement.SampleLevel(samLinear, input.Tex, 0).xyz, 1);
+
+    //return txDiffuse.SampleLevel( samLinear, input.Tex, 0 ) * vMeshColor;
 }

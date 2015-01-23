@@ -21,11 +21,11 @@
 #include "dxapp.h"
 #include "FPrimitive.h"
 #include "camera.h"
-
+#include "FFT/ocean_simulator.h"
 
 // structure to be processed in compute shader
 // and used in vertex shader as main input
-#define GRID_DIMENSION 128
+#define GRID_DIMENSION 128 //must be a multiple of 16
 
 struct __declspec(align(16)) CBForCS
 {
@@ -52,7 +52,8 @@ public:
     virtual	HRESULT Init(LPD3D11Device device) override;
     virtual HRESULT Render(LPD3DDeviceContext context) override;
     virtual HRESULT Release() override;
-
+    
+    void Update(double appTime, double deltaTime);
     void setCamera(DXCamera* camera) { mCamera = camera; };
 
     bool fillConstantBuffer(CBForCS& buffrer);
@@ -61,9 +62,15 @@ public:
     XMFLOAT3 positions[32];
     int numOfPositions;
 
+    OceanSimulator* mOceanSimulator;
+
 protected:
 
     
+    void initOcean(LPD3D11Device device);
+    void releaseOcean();
+    void updateOcean();
+
 
     // gridsize
     DXCamera* mCamera;

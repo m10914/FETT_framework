@@ -14,7 +14,6 @@
 #include "FPPlane.h"
 
 
-
 DXApp* initApplication()
 {
     return new TestProject();
@@ -47,6 +46,9 @@ TestProject::TestProject():
 {
     mVertexShader = NULL;
     mPixelShader = NULL;
+
+    mPixelShaderQuad = NULL;
+    mVertexShaderQuad = NULL;
 
     mVertexShaderReflection = NULL;
     mPixelShaderReflection = NULL;
@@ -189,6 +191,14 @@ HRESULT TestProject::FrameMove()
     mVMeshColor.z = ( sinf( totalTime * 0.005f ) + 1.0f ) * 0.5f;
     cb.vMeshColor = mVMeshColor;
 
+
+    //-----------------------------------------------
+    // update objects
+
+    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 0, 0, 0), L"Update surface");
+    surface.Update(totalTime, deltaTime);
+    D3DPERF_EndEvent();
+
     return S_OK;
 }
 
@@ -202,10 +212,13 @@ HRESULT TestProject::RenderScene()
 	//setup common stuff
 	ID3D11SamplerState* aSamplers[] = { mSamplerLinear, mBackbufferSampler, mDepthSampler };
 	mImmediateContext->PSSetSamplers( 0, 3, aSamplers );
+    mImmediateContext->VSSetSamplers( 0, 3, aSamplers );
 
 
     //--------------------------------------------------------------------
     // TO TEXTURE
+
+    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 255, 0), L"RT render");
 
 	// set RT and clear it
 	mImmediateContext->OMSetRenderTargets( 1, &mRTSecondRTV, mDSSecondDSV);
@@ -231,7 +244,10 @@ HRESULT TestProject::RenderScene()
 
 	// render cubes
     // it's the same cube actually
-	if(true){
+	if(true)
+    {
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
+
         cube.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
@@ -240,16 +256,26 @@ HRESULT TestProject::RenderScene()
 
         cube.position = XMFLOAT3(-3, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+
+        D3DPERF_EndEvent();
 	}
+
+
+
+    D3DPERF_EndEvent();
 
 
 	//--------------------------------------------------------------------
 	// TO BACKBUFFER
 
+    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Backbuffer render");
+
 	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView);
 
 	// render cubes
 	if(true){
+
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
 
         mImmediateContext->RSSetState( mRSOrdinary );
 
@@ -262,11 +288,14 @@ HRESULT TestProject::RenderScene()
 
         cube.position = XMFLOAT3(-3, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+
+        D3DPERF_EndEvent();
     }
 
 
     // render cameras frustums
-    if(!bViewCameraMain){
+    if(!bViewCameraMain)
+    {
         XMVECTOR det;
         XMMATRIX invViewProj = mainCamera.getViewMatrix() * mainCamera.getProjMatrix();
         invViewProj = XMMatrixInverse( &det, invViewProj );
@@ -278,6 +307,7 @@ HRESULT TestProject::RenderScene()
     }
 
     // render debug points
+    if(false)
     {
         cb.vMeshColor = XMFLOAT4(1, 1, 1, 1);
 
@@ -294,12 +324,14 @@ HRESULT TestProject::RenderScene()
     }
 
     // projected grid (along with water shader)
+    D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Water grid");
     CBForCS cbSurface;
     bool bGrid = surface.fillConstantBuffer(cbSurface);
-    if(bGrid) {
-
+    if(bGrid)
+    {
         //--------------------------------
-        // do GPU computing     
+        // do GPU computing 
+
         mImmediateContext->UpdateSubresource(mCBforCS, 0, NULL, &cbSurface, 0, 0);
         mImmediateContext->CSSetShader(mCS, NULL, 0);
 
@@ -313,8 +345,8 @@ HRESULT TestProject::RenderScene()
         mImmediateContext->Dispatch(tG, tG, 1); //numthreads(16,16,1)
 
         // unbind
-        ID3D11UnorderedAccessView* ppUAViewNULL[1] = { NULL };
-        mImmediateContext->CSSetUnorderedAccessViews(0, 1, ppUAViewNULL, (UINT*)(&ppUAViewNULL));
+        aUAViews[0] = NULL;
+        mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
 
 
 
@@ -322,9 +354,14 @@ HRESULT TestProject::RenderScene()
         // do rendering
         
         // bind computed buffer
-        ID3D11ShaderResourceView* aRViews[1] = { mGridBufferSRV };
-        mImmediateContext->VSSetShaderResources(3, 1, aRViews);
-        
+        ID3D11ShaderResourceView* aRViews[3] = {
+            mGridBufferSRV,
+            surface.mOceanSimulator->getD3D11DisplacementMap(),
+            surface.mOceanSimulator->getD3D11GradientMap()
+        };
+        mImmediateContext->VSSetShaderResources(3, 3, aRViews);
+        mImmediateContext->PSSetShaderResources(3, 3, aRViews);
+
         mImmediateContext->RSSetState( mRSWireframe );
         mImmediateContext->IASetInputLayout( NULL );
 
@@ -335,13 +372,44 @@ HRESULT TestProject::RenderScene()
         surface.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive(&surface, mImmediateContext, cb, mCBChangesEveryFrame);
 
-        ID3D11ShaderResourceView* aRViewsNULL[1] = { NULL };
-        mImmediateContext->VSSetShaderResources(3, 1, aRViewsNULL);
-    }
+        ID3D11ShaderResourceView* aRViewsNULL[3] = { NULL, NULL, NULL };
+        mImmediateContext->VSSetShaderResources(3, 3, aRViewsNULL);
+        mImmediateContext->PSSetShaderResources(3, 3, aRViewsNULL);
 
+        mImmediateContext->RSSetState(mRSOrdinary);
+    }
+    D3DPERF_EndEvent();
+
+
+    //quads   
+    {
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 0, 0), L"Quads");
+
+        mImmediateContext->PSSetShader(mPixelShaderQuad, NULL, 0);
+        mImmediateContext->VSSetShader(mVertexShaderQuad, NULL, 0);
+
+        ID3D11ShaderResourceView* srviews[1] = { surface.mOceanSimulator->getD3D11DisplacementMap() };
+        mImmediateContext->PSSetShaderResources(0, 1, srviews);
+
+        RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.01, 0.01), XMFLOAT2(0.2,0.2));
+
+        srviews[0] = surface.mOceanSimulator->getD3D11GradientMap();
+        mImmediateContext->PSSetShaderResources(0, 1, srviews);
+
+        RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.22, 0.01), XMFLOAT2(0.2, 0.2));
+
+        srviews[0] = NULL;
+        mImmediateContext->PSSetShaderResources(0, 1, srviews);
+
+        D3DPERF_EndEvent();
+    }
+    
 
     // SSR plane
+    if(true)
     {
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 255, 0), L"SSR");
+
         mImmediateContext->IASetInputLayout( mLayoutPT );
 
         // enable reflection shaders
@@ -354,12 +422,16 @@ HRESULT TestProject::RenderScene()
         plane.position = XMFLOAT3(0, -0.3, 0);
         plane.scale = XMFLOAT3(10, 1, 10);
         //FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
+
+        D3DPERF_EndEvent();
     }
 
 
 
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
 	mImmediateContext->PSSetShaderResources( 0, 3, view );
+
+    D3DPERF_EndEvent();
 
 	return S_OK;
 }
@@ -500,7 +572,57 @@ render_points_end:
     return;
 }
 
+void TestProject::RenderQuad(LPD3DDeviceContext context, LPD3D11Device device, XMFLOAT2 offset, XMFLOAT2 relSize)
+{
+    //assemble points
+    ID3D11Buffer* mVertexBuffer = NULL;
 
+    //create buffers
+    HRESULT hr;
+
+
+    VertexFormatPT vertices[] =
+    {
+        { XMFLOAT3(2.0*offset.x - 1.0, 2.0*(offset.y + relSize.y) - 1.0, 0), XMFLOAT2(0, 0) },
+        { XMFLOAT3(2.0*(offset.x + relSize.x) - 1.0, 2.0*(offset.y + relSize.y) - 1.0, 0), XMFLOAT2(1, 0) },
+        { XMFLOAT3(2.0*offset.x-1.0, 2.0*offset.y-1.0, 0), XMFLOAT2(0, 1) },      
+        { XMFLOAT3(2.0*(offset.x + relSize.x)-1.0, 2.0*offset.y-1.0, 0), XMFLOAT2(1, 1) },
+
+        /*{ XMFLOAT3(offset.x, offset.y, 0), XMFLOAT2(0, 0) },    
+        { XMFLOAT3(offset.x + relSize.x, offset.y + relSize.y, 0), XMFLOAT2(1, 1) },*/
+    };
+
+    D3D11_SUBRESOURCE_DATA InitData;
+    ZeroMemory(&InitData, sizeof(InitData));
+
+    D3D11_BUFFER_DESC bd;
+    ZeroMemory(&bd, sizeof(bd));
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(vertices);
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+
+    InitData.pSysMem = vertices;
+    hr = device->CreateBuffer(&bd, &InitData, &mVertexBuffer);
+    if (FAILED(hr))
+        goto render_quad_end;
+
+    // Set vertex buffer
+    UINT stride = sizeof(VertexFormatPT);
+    UINT loffset = 0;
+    context->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &loffset);
+
+    // Set primitive topology
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+    // draw dat shit
+    context->Draw(4, 0);
+
+
+render_quad_end:
+    SAFE_RELEASE(mVertexBuffer);
+    return;
+}
 
 
 /*
@@ -531,14 +653,16 @@ HRESULT TestProject::InitScene()
 
 	ID3DBlob* pVSBlob = NULL;
     
-    FUtil::InitVertexShader( mDevice, "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShader );
+    FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShader);
+    FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS_QUAD", "vs_4_0", &pVSBlob, &mVertexShaderQuad);
     FUtil::InitVertexShader( mDevice, "TestProjectShader.fx", "VS_Reflection", "vs_4_0", &pVSBlob, &mVertexShaderReflection );
     FUtil::InitVertexShader( mDevice, "TestProjectShader.fx", "VS_WAT", "vs_4_0", &pVSBlob, &mVertexShaderWater );
 
 
     ID3DBlob* pPSBlob = NULL;
 
-    FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShader);
+    FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShader);
+    FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS_QUAD", "ps_4_0", &pPSBlob, &mPixelShaderQuad);
     FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS_Reflection", "ps_4_0", &pPSBlob, &mPixelShaderReflection);
     FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS_WAT", "ps_4_0", &pPSBlob, &mPixelShaderWater);
 
@@ -764,6 +888,9 @@ HRESULT TestProject::ReleaseScene()
 
 	SAFE_RELEASE(mVertexShader);
 	SAFE_RELEASE(mPixelShader);
+
+    SAFE_RELEASE(mVertexShaderQuad);
+    SAFE_RELEASE(mPixelShaderQuad);
 
     SAFE_RELEASE(mVertexShaderReflection);
     SAFE_RELEASE(mPixelShaderReflection);

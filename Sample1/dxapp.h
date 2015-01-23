@@ -31,6 +31,9 @@ Basic framework class for all application.
 
 
 #define SAFE_RELEASE(x)		if (x) { (x)->Release();		(x) = NULL; }	//!< Safe D3D-style release
+#define SAFE_DELETE_ARRAY(p) { if (p) { delete[] (p);   (p)=NULL; } }
+#define SAFE_DELETE(p) { if (p) { delete (p);   (p)=NULL; } }
+
 
 #if defined(_DEBUG)
 #ifndef V

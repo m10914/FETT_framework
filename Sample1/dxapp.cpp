@@ -7,8 +7,6 @@
 #include "FUtil.h"
 
 
-
-
 DXApp::DXApp():
 	mDriverType(D3D_DRIVER_TYPE_NULL),
 	mFeatureLevel(D3D_FEATURE_LEVEL_11_0),

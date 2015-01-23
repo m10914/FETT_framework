@@ -92,6 +92,11 @@ XMVECTOR FSurface::calcWorldPosOfCorner(XMFLOAT2 uv, XMMATRIX* matrix)
 }
 
 
+void FSurface::Update(double appTime, double deltaTime)
+{
+    mOceanSimulator->updateDisplacementMap((float)appTime/1000.0);
+}
+
 bool FSurface::fillConstantBuffer(CBForCS& buffrer)
 {
     XMMATRIX viewProjInverted;
@@ -120,48 +125,6 @@ bool FSurface::fillConstantBuffer(CBForCS& buffrer)
         buffrer.vCorner2 = XMFLOAT4(corner2.m128_f32[0], corner2.m128_f32[1], corner2.m128_f32[2], corner2.m128_f32[3]);
         buffrer.vCorner3 = XMFLOAT4(corner3.m128_f32[0], corner3.m128_f32[1], corner3.m128_f32[2], corner3.m128_f32[3]);
 
-        /*VertexFormatPNT* verts = NULL;
-        D3D11_MAPPED_SUBRESOURCE mapped;
-        HRESULT hr = context->Map( mVertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &mapped);
-        if(hr == E_FAIL)
-        {
-        bVisible = false;
-        return;
-        }
-        verts = (VertexFormatPNT*)mapped.pData;
-
-        float du = 1.0f/float(SizeX);
-        float dv = 1.0f/float(SizeY);
-        float u, v = 0.0f;
-
-        XMFLOAT4 result;
-        int i=0;
-        for(int iv=0; iv < SizeY+1; iv++)
-        {
-        u = 0.0f;
-        for(int iu=0; iu < SizeX+1; iu++)
-        {
-        result.x = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[0] + u*corner1.m128_f32[0] ) + v*( (1.0f-u)*corner2.m128_f32[0] + u*corner3.m128_f32[0] );
-        result.z = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[2] + u*corner1.m128_f32[2] ) + v*( (1.0f-u)*corner2.m128_f32[2] + u*corner3.m128_f32[2] );
-        result.w = (1.0f-v)*( (1.0f-u)*corner0.m128_f32[3] + u*corner1.m128_f32[3] ) + v*( (1.0f-u)*corner2.m128_f32[3] + u*corner3.m128_f32[3] );
-
-        float divide = 1.0f/result.w;
-        result.x *= divide;
-        result.z *= divide;
-
-        verts[i].Pos.x = result.x;
-        verts[i].Pos.z = result.z;
-        verts[i].Pos.y = 0;
-
-        i++;
-        u += du;
-        }
-        v += dv;
-        }
-
-        //-------------------------------------------------------
-
-        context->Unmap( mVertexBuffer, NULL );*/
     }
 
     return bVisible;
@@ -380,16 +343,51 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
 HRESULT FSurface::Init(LPD3D11Device device)
 {
     initBuffer(device);
+    initOcean(device);
 
     return S_OK;
 }
+void FSurface::initOcean(LPD3D11Device device)
+{
+    // Create ocean simulating object
+    // Ocean object
+    OceanParameter ocean_param;
+
+    // The size of displacement map. In this sample, it's fixed to 512.
+    ocean_param.dmap_dim = 512;
+    // The side length (world space) of square patch
+    ocean_param.patch_length = 2000.0f;
+    // Adjust this parameter to control the simulation speed
+    ocean_param.time_scale = 0.8f;
+    // A scale to control the amplitude. Not the world space height
+    ocean_param.wave_amplitude = 0.35f;
+    // 2D wind direction. No need to be normalized
+    ocean_param.wind_dir = D3DXVECTOR2(0.8f, 0.6f);
+    // The bigger the wind speed, the larger scale of wave crest.
+    // But the wave scale can be no larger than patch_length
+    ocean_param.wind_speed = 600.0f;
+    // Damp out the components opposite to wind direction.
+    // The smaller the value, the higher wind dependency
+    ocean_param.wind_dependency = 0.07f;
+    // Control the scale of horizontal movement. Higher value creates
+    // pointy crests.
+    ocean_param.choppy_scale = 1.3f;
+
+    mOceanSimulator = new OceanSimulator(ocean_param, device);
+
+    // Update the simulation for the first time.
+    mOceanSimulator->updateDisplacementMap(0);
+}
+
+
+
+
 
 HRESULT FSurface::Render(LPD3DDeviceContext context)
 {
     // Set vertex buffer
     UINT stride = sizeof( VertexFormatPNT );
     UINT offset = 0;
-    //context->IASetVertexBuffers( 0, 1, &mVertexBuffer, &stride, &offset );
 
     // Null vertex buffer - actual vertices info will be counted in compute shader
     context->IASetVertexBuffers(0, 0, NULL, &offset, &offset);
@@ -409,6 +407,8 @@ HRESULT FSurface::Render(LPD3DDeviceContext context)
 HRESULT FSurface::Release()
 {
     SAFE_RELEASE(mIndexBuffer);
+
+    SAFE_DELETE(mOceanSimulator);
 
     return S_OK;
 }
