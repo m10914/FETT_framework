@@ -97,7 +97,7 @@ void FSurface::Update(double appTime, double deltaTime)
     mOceanSimulator->updateDisplacementMap((float)appTime/1000.0);
 }
 
-bool FSurface::fillConstantBuffer(CBForCS& buffrer)
+bool FSurface::fillConstantBuffer(CBForCS& buffrer, double appTime)
 {
     XMMATRIX viewProjInverted;
     XMVECTOR det;
@@ -125,6 +125,20 @@ bool FSurface::fillConstantBuffer(CBForCS& buffrer)
         buffrer.vCorner2 = XMFLOAT4(corner2.m128_f32[0], corner2.m128_f32[1], corner2.m128_f32[2], corner2.m128_f32[3]);
         buffrer.vCorner3 = XMFLOAT4(corner3.m128_f32[0], corner3.m128_f32[1], corner3.m128_f32[2], corner3.m128_f32[3]);
 
+        // set world to zero
+
+        XMMATRIX mat = XMMatrixTranslation(0, 0, 0);
+        buffrer.worldMatrix = XMMatrixTranspose(mat);
+
+        // set perlin params
+        buffrer.PerlinAmplitude = pOceanDesc->PerlinAmplitude;
+        buffrer.PerlinGradient = g_PerlinGradient;
+        buffrer.PerlinOctave = g_PerlinOctave;
+        buffrer.PerlinSize = g_PerlinSize;
+
+        float mul = (float)appTime * 0.001 * g_PerlinSpeed;
+        XMFLOAT2 perlin_move = XMFLOAT2(mul*windDir.x, mul*windDir.y);
+        buffrer.PerlinMovement = perlin_move;
     }
 
     return bVisible;
@@ -340,8 +354,11 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
 
 
 
-HRESULT FSurface::Init(LPD3D11Device device)
+HRESULT FSurface::Init(LPD3D11Device device, OceanDescription* desc)
 {
+    //store ocean description
+    this->pOceanDesc = desc;
+
     initBuffer(device);
     initOcean(device);
 
@@ -349,34 +366,72 @@ HRESULT FSurface::Init(LPD3D11Device device)
 }
 void FSurface::initOcean(LPD3D11Device device)
 {
-    // Create ocean simulating object
-    // Ocean object
-    OceanParameter ocean_param;
+    // NVidia part
+    {
+        // Create ocean simulating object (copy from desc)
+        OceanParameter ocean_param;
 
-    // The size of displacement map. In this sample, it's fixed to 512.
-    ocean_param.dmap_dim = 512;
-    // The side length (world space) of square patch
-    ocean_param.patch_length = 2000.0f;
-    // Adjust this parameter to control the simulation speed
-    ocean_param.time_scale = 0.8f;
-    // A scale to control the amplitude. Not the world space height
-    ocean_param.wave_amplitude = 0.35f;
-    // 2D wind direction. No need to be normalized
-    ocean_param.wind_dir = D3DXVECTOR2(0.8f, 0.6f);
-    // The bigger the wind speed, the larger scale of wave crest.
-    // But the wave scale can be no larger than patch_length
-    ocean_param.wind_speed = 600.0f;
-    // Damp out the components opposite to wind direction.
-    // The smaller the value, the higher wind dependency
-    ocean_param.wind_dependency = 0.07f;
-    // Control the scale of horizontal movement. Higher value creates
-    // pointy crests.
-    ocean_param.choppy_scale = 1.3f;
+        ocean_param.dmap_dim = 512;
+        ocean_param.patch_length = 2000.0f;
+        ocean_param.time_scale = 0.8f;
+        ocean_param.wave_amplitude = 0.35f;
+        ocean_param.wind_dir = D3DXVECTOR2(windDir.x, windDir.y);
+        ocean_param.wind_speed = 600.0f;
+        ocean_param.wind_dependency = 0.07f;
+        ocean_param.choppy_scale = 1.3f;
 
-    mOceanSimulator = new OceanSimulator(ocean_param, device);
+        mOceanSimulator = new OceanSimulator(ocean_param, device);
 
-    // Update the simulation for the first time.
-    mOceanSimulator->updateDisplacementMap(0);
+        // Update the simulation for the first time.
+        mOceanSimulator->updateDisplacementMap(0);
+    }
+
+
+
+    DWORD* buffer = new DWORD[FRESNEL_TEX_SIZE];
+    for (int i = 0; i < FRESNEL_TEX_SIZE; i++)
+    {
+        float cos_a = i / (FLOAT)FRESNEL_TEX_SIZE;
+        // Using water's refraction index 1.33
+        DWORD fresnel = (DWORD)(D3DXFresnelTerm(cos_a, 1.33f) * 255);
+
+        DWORD sky_blend = (DWORD)(powf(1 / (1 + cos_a), 16) * 255);
+
+        buffer[i] = (sky_blend << 8) | fresnel;
+    }
+
+    D3D11_TEXTURE1D_DESC tex_desc;
+    tex_desc.Width = FRESNEL_TEX_SIZE;
+    tex_desc.MipLevels = 1;
+    tex_desc.ArraySize = 1;
+    tex_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    tex_desc.Usage = D3D11_USAGE_IMMUTABLE;
+    tex_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    tex_desc.CPUAccessFlags = 0;
+    tex_desc.MiscFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA init_data;
+    init_data.pSysMem = buffer;
+    init_data.SysMemPitch = 0;
+    init_data.SysMemSlicePitch = 0;
+
+    device->CreateTexture1D(&tex_desc, &init_data, &pFresnelTexture);
+
+    SAFE_DELETE_ARRAY(buffer);
+
+    // Create shader resource
+    D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc;
+    srv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE1D;
+    srv_desc.Texture1D.MipLevels = 1;
+    srv_desc.Texture1D.MostDetailedMip = 0;
+
+    device->CreateShaderResourceView(pFresnelTexture, &srv_desc, &pFresnelSRV);
+
+
+    //load pre-generated perlin texture
+    D3DX11CreateShaderResourceViewFromFile(device, "perlin_noise.dds", NULL, NULL, &pPerlinSRV, NULL);
+
 }
 
 

@@ -26,6 +26,24 @@ void FUtil::RenderPrimitive(FPrimitive* primitive, LPD3DDeviceContext context, C
 }
 
 
+XMVECTOR FUtil::FromFloat(XMFLOAT3& vec)
+{
+    return XMVectorSet(vec.x, vec.y, vec.z, 1);
+}
+XMVECTOR FUtil::FromFloat(XMFLOAT4& vec)
+{
+    return XMVectorSet(vec.x, vec.y, vec.z, vec.w);
+}
+XMFLOAT3 FUtil::FromVector3(XMVECTOR& vec)
+{
+    return XMFLOAT3(vec.m128_f32[0], vec.m128_f32[1], vec.m128_f32[2]);
+}
+XMFLOAT4 FUtil::FromVector4(XMVECTOR& vec)
+{
+    return XMFLOAT4(vec.m128_f32[0], vec.m128_f32[1], vec.m128_f32[2], vec.m128_f32[3]);
+}
+
+
 
 
 //--------------------------------------------------------------------------------------

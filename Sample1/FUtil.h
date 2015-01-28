@@ -26,6 +26,12 @@ public:
     static HRESULT InitVertexShader( LPD3D11Device device, char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3DBlob** blob, ID3D11VertexShader** shaderPtr);
     static HRESULT InitPixelShader( LPD3D11Device device, char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3DBlob** blob, ID3D11PixelShader** shaderPtr);
 
+    //math helpers
+    static XMFLOAT3 FromVector3(XMVECTOR& vec);
+    static XMVECTOR FromFloat(XMFLOAT3& vec);
+    static XMFLOAT4 FromVector4(XMVECTOR& vec);
+    static XMVECTOR FromFloat(XMFLOAT4& vec);
 
+    //misc
     static void Log(char* format, ...);
 };

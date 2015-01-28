@@ -410,141 +410,146 @@ void OceanSimulator::initHeightMap(OceanParameter& params, D3DXVECTOR2* out_h0, 
 
 void OceanSimulator::updateDisplacementMap(float time)
 {
-	// ---------------------------- H(0) -> H(t), D(x, t), D(y, t) --------------------------------
-	// Compute shader
-	m_pd3dImmediateContext->CSSetShader(m_pUpdateSpectrumCS, NULL, 0);
-
-	// Buffers
-	ID3D11ShaderResourceView* cs0_srvs[2] = {m_pSRV_H0, m_pSRV_Omega};
-	m_pd3dImmediateContext->CSSetShaderResources(0, 2, cs0_srvs);
-
-	ID3D11UnorderedAccessView* cs0_uavs[1] = {m_pUAV_Ht};
-	m_pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, cs0_uavs, (UINT*)(&cs0_uavs[0]));
-
-	// Consts
-    float mapp[3] = {
-        time * m_param.time_scale,
-        m_param.choppy_scale,
-        m_param.dmap_dim / m_param.patch_length
-    };
-    m_pd3dImmediateContext->UpdateSubresource(m_pPerFrameCB, 0, NULL, mapp, 0, 0);
-
-
-	ID3D11Buffer* cs_cbs[2] = {m_pImmutableCB, m_pPerFrameCB};
-	m_pd3dImmediateContext->CSSetConstantBuffers(0, 2, cs_cbs);
-
-	// Run the CS
-	UINT group_count_x = (m_param.dmap_dim + BLOCK_SIZE_X - 1) / BLOCK_SIZE_X;
-	UINT group_count_y = (m_param.dmap_dim + BLOCK_SIZE_Y - 1) / BLOCK_SIZE_Y;
-	m_pd3dImmediateContext->Dispatch(group_count_x, group_count_y, 1);
-
-	// Unbind resources for CS
-	cs0_uavs[0] = NULL;
-	m_pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, cs0_uavs, (UINT*)(&cs0_uavs[0]));
-	cs0_srvs[0] = NULL;
-	cs0_srvs[1] = NULL;
-	m_pd3dImmediateContext->CSSetShaderResources(0, 2, cs0_srvs);
-
-
-	// ------------------------------------ Perform FFT -------------------------------------------
-	fft_512x512_c2c(&m_fft_plan, m_pUAV_Dxyz, m_pSRV_Dxyz, m_pSRV_Ht);
-
-	// --------------------------------- Wrap Dx, Dy and Dz ---------------------------------------
-	// Push RT
-	ID3D11RenderTargetView* old_target;
-	ID3D11DepthStencilView* old_depth;
-	m_pd3dImmediateContext->OMGetRenderTargets(1, &old_target, &old_depth); 
-	D3D11_VIEWPORT old_viewport;
-	UINT num_viewport = 1;
-	m_pd3dImmediateContext->RSGetViewports(&num_viewport, &old_viewport);
-
-	D3D11_VIEWPORT new_vp = {0, 0, (float)m_param.dmap_dim, (float)m_param.dmap_dim, 0.0f, 1.0f};
-	m_pd3dImmediateContext->RSSetViewports(1, &new_vp);
-
-	// Set RT
-	ID3D11RenderTargetView* rt_views[1] = {m_pDisplacementRTV};
-	m_pd3dImmediateContext->OMSetRenderTargets(1, rt_views, NULL);
-
-	// VS & PS
-	m_pd3dImmediateContext->VSSetShader(m_pQuadVS, NULL, 0);
-	m_pd3dImmediateContext->PSSetShader(m_pUpdateDisplacementPS, NULL, 0);
-
-	// Constants
-	ID3D11Buffer* ps_cbs[2] = {m_pImmutableCB, m_pPerFrameCB};
-	m_pd3dImmediateContext->PSSetConstantBuffers(0, 2, ps_cbs);
-
-	// Buffer resources
-	ID3D11ShaderResourceView* ps_srvs[1] = {m_pSRV_Dxyz};
-    m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
-
-	// IA setup
-	ID3D11Buffer* vbs[1] = {m_pQuadVB};
-	UINT strides[1] = {sizeof(D3DXVECTOR4)};
-	UINT offsets[1] = {0};
-	m_pd3dImmediateContext->IASetVertexBuffers(0, 1, &vbs[0], &strides[0], &offsets[0]);
-
-	m_pd3dImmediateContext->IASetInputLayout(m_pQuadLayout);
-	m_pd3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
-	// Perform draw call
-	m_pd3dImmediateContext->Draw(4, 0);
-
-	// Unbind
-	ps_srvs[0] = NULL;
-    m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
-
-
-	// ----------------------------------- Generate Normal ----------------------------------------
-	// Set RT
-	rt_views[0] = m_pGradientRTV;
-	m_pd3dImmediateContext->OMSetRenderTargets(1, rt_views, NULL);
-
-	// VS & PS
-	m_pd3dImmediateContext->VSSetShader(m_pQuadVS, NULL, 0);
-	m_pd3dImmediateContext->PSSetShader(m_pGenGradientFoldingPS, NULL, 0);
-
-	// Texture resource and sampler
-	ps_srvs[0] = m_pDisplacementSRV;
-    m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
-
-	ID3D11SamplerState* samplers[1] = {m_pPointSamplerState};
-	m_pd3dImmediateContext->PSSetSamplers(0, 1, &samplers[0]);
-
-	// Perform draw call
-	m_pd3dImmediateContext->Draw(4, 0);
-
-	// Unbind
-	ps_srvs[0] = NULL;
-    m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
-
-	// Pop RT
-	m_pd3dImmediateContext->RSSetViewports(1, &old_viewport);
-	m_pd3dImmediateContext->OMSetRenderTargets(1, &old_target, old_depth);
-	SAFE_RELEASE(old_target);
-	SAFE_RELEASE(old_depth);
-
-	m_pd3dImmediateContext->GenerateMips(m_pGradientSRV);
-
-	// Define CS_DEBUG_BUFFER to enable writing a buffer into a file.
-#ifdef CS_DEBUG_BUFFER
+    // ---------------------------- H(0) -> H(t), D(x, t), D(y, t) --------------------------------
+    // Compute shader
     {
-		m_pd3dImmediateContext->CopyResource(m_pDebugBuffer, m_pBuffer_Float_Dxyz);
-        D3D11_MAPPED_SUBRESOURCE mapped_res;
-        m_pd3dImmediateContext->Map(m_pDebugBuffer, 0, D3D11_MAP_READ, 0, &mapped_res);
-        
-		// set a break point below, and drag MappedResource.pData into in your Watch window
-		// and cast it as (float*)
+        D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Update spectrum");
 
-		// Write to disk
-		D3DXVECTOR2* v = (D3DXVECTOR2*)mapped_res.pData;
+        m_pd3dImmediateContext->CSSetShader(m_pUpdateSpectrumCS, NULL, 0);
 
-		FILE* fp = fopen(".\\tmp\\Ht_raw.dat", "wb");
-		fwrite(v, 512*512*sizeof(float)*2*3, 1, fp);
-		fclose(fp);
+        // Buffers
+        ID3D11ShaderResourceView* cs0_srvs[2] = { m_pSRV_H0, m_pSRV_Omega };
+        m_pd3dImmediateContext->CSSetShaderResources(0, 2, cs0_srvs);
 
-		m_pd3dImmediateContext->Unmap(m_pDebugBuffer, 0);
+        ID3D11UnorderedAccessView* cs0_uavs[1] = { m_pUAV_Ht };
+        m_pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, cs0_uavs, (UINT*)(&cs0_uavs[0]));
+
+        // Consts
+        float mapp[3] = {
+            time * m_param.time_scale,
+            m_param.choppy_scale,
+            m_param.dmap_dim / m_param.patch_length
+        };
+        m_pd3dImmediateContext->UpdateSubresource(m_pPerFrameCB, 0, NULL, mapp, 0, 0);
+
+
+        ID3D11Buffer* cs_cbs[2] = { m_pImmutableCB, m_pPerFrameCB };
+        m_pd3dImmediateContext->CSSetConstantBuffers(0, 2, cs_cbs);
+
+        // Run the CS
+        UINT group_count_x = (m_param.dmap_dim + BLOCK_SIZE_X - 1) / BLOCK_SIZE_X;
+        UINT group_count_y = (m_param.dmap_dim + BLOCK_SIZE_Y - 1) / BLOCK_SIZE_Y;
+        m_pd3dImmediateContext->Dispatch(group_count_x, group_count_y, 1);
+
+        // Unbind resources for CS
+        cs0_uavs[0] = NULL;
+        m_pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, cs0_uavs, (UINT*)(&cs0_uavs[0]));
+        cs0_srvs[0] = NULL;
+        cs0_srvs[1] = NULL;
+        m_pd3dImmediateContext->CSSetShaderResources(0, 2, cs0_srvs);
+
+        D3DPERF_EndEvent();
     }
-#endif
+
+    // ------------------------------------ Perform FFT -------------------------------------------
+    {
+        D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"FFT");
+
+        fft_512x512_c2c(&m_fft_plan, m_pUAV_Dxyz, m_pSRV_Dxyz, m_pSRV_Ht);
+
+        D3DPERF_EndEvent();
+    }
+
+    // store old viewports, old targets etc
+
+    D3D11_VIEWPORT old_viewport;
+    UINT num_viewport = 1;
+    m_pd3dImmediateContext->RSGetViewports(&num_viewport, &old_viewport);
+
+    ID3D11RenderTargetView* old_target;
+    ID3D11DepthStencilView* old_depth;
+    m_pd3dImmediateContext->OMGetRenderTargets(1, &old_target, &old_depth);
+
+
+    // --------------------------------- Wrap Dx, Dy and Dz ---------------------------------------
+    // Push RT
+    {
+        D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Normal foldings");
+ 
+        D3D11_VIEWPORT new_vp = { 0, 0, (float)m_param.dmap_dim, (float)m_param.dmap_dim, 0.0f, 1.0f };
+        m_pd3dImmediateContext->RSSetViewports(1, &new_vp);
+
+        // Set RT
+        ID3D11RenderTargetView* rt_views[1] = { m_pDisplacementRTV };
+        m_pd3dImmediateContext->OMSetRenderTargets(1, rt_views, NULL);
+
+        // VS & PS
+        m_pd3dImmediateContext->VSSetShader(m_pQuadVS, NULL, 0);
+        m_pd3dImmediateContext->PSSetShader(m_pUpdateDisplacementPS, NULL, 0);
+
+        // Constants
+        ID3D11Buffer* ps_cbs[2] = { m_pImmutableCB, m_pPerFrameCB };
+        m_pd3dImmediateContext->PSSetConstantBuffers(0, 2, ps_cbs);
+
+        // Buffer resources
+        ID3D11ShaderResourceView* ps_srvs[1] = { m_pSRV_Dxyz };
+        m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
+
+        // IA setup
+        ID3D11Buffer* vbs[1] = { m_pQuadVB };
+        UINT strides[1] = { sizeof(D3DXVECTOR4) };
+        UINT offsets[1] = { 0 };
+        m_pd3dImmediateContext->IASetVertexBuffers(0, 1, &vbs[0], &strides[0], &offsets[0]);
+
+        m_pd3dImmediateContext->IASetInputLayout(m_pQuadLayout);
+        m_pd3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+        // Perform draw call
+        m_pd3dImmediateContext->Draw(4, 0);
+
+        // Unbind
+        ps_srvs[0] = NULL;
+        m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
+
+        D3DPERF_EndEvent();
+    }
+
+    // ----------------------------------- Generate Normal ----------------------------------------
+    {
+        D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Normal foldings");
+
+        // Set RT
+        ID3D11RenderTargetView* rt_views[1] = { m_pGradientRTV };
+        m_pd3dImmediateContext->OMSetRenderTargets(1, rt_views, NULL);
+
+        // VS & PS
+        m_pd3dImmediateContext->VSSetShader(m_pQuadVS, NULL, 0);
+        m_pd3dImmediateContext->PSSetShader(m_pGenGradientFoldingPS, NULL, 0);
+
+        // Texture resource and sampler
+        ID3D11ShaderResourceView* ps_srvs[1] = { m_pDisplacementSRV };
+        m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
+
+        ID3D11SamplerState* samplers[1] = { m_pPointSamplerState };
+        m_pd3dImmediateContext->PSSetSamplers(0, 1, &samplers[0]);
+
+        // Perform draw call
+        m_pd3dImmediateContext->Draw(4, 0);
+
+        // Unbind
+        ps_srvs[0] = NULL;
+        m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
+
+        // Pop RT
+        m_pd3dImmediateContext->RSSetViewports(1, &old_viewport);
+        m_pd3dImmediateContext->OMSetRenderTargets(1, &old_target, old_depth);
+        SAFE_RELEASE(old_target);
+        SAFE_RELEASE(old_depth);
+
+        m_pd3dImmediateContext->GenerateMips(m_pGradientSRV);
+
+        D3DPERF_EndEvent();
+    }
 }
 
 ID3D11ShaderResourceView* OceanSimulator::getD3D11DisplacementMap()

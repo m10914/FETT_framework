@@ -24,7 +24,8 @@ StructuredBuffer<Pos> gridBuffer : register(t3);
 
 Texture2D txDisplacement : register(t4);
 Texture2D txRipple : register(t5);
-
+Texture1D txFresnel : register(t6);
+Texture2D txPerlin : register(t7);
 
 
 SamplerState samLinear : register( s0 );
@@ -34,15 +35,27 @@ SamplerState samDepth : register( s2 );
 
 cbuffer cbChangesEveryFrame : register( b0 )
 {
-    matrix World;
-    matrix View;
-    matrix Projection;
+    matrix World : packoffset(c0.x);
+    matrix View : packoffset(c4.x);
+    matrix Projection : packoffset(c8.x);
 
-    float4 vScreenParams;
-	float4 PerspectiveValues;
+    float4 vScreenParams : packoffset(c12.x);
+    float4 PerspectiveValues : packoffset(c13.x);
 
-    float4 vMeshColor;
-	float4 SSRParams; //x - numsteps, y - depth bias, z - pixelsize, w - reserved	
+    float4 vMeshColor : packoffset(c14.x);
+    float4 SSRParams : packoffset(c15.x); //x - numsteps, y - depth bias, z - pixelsize, w - reserved	
+
+    float3 eyeVector : packoffset(c16.x);
+    float3 sunDirection : packoffset(c17.x);
+    float3 waterColor : packoffset(c18.x);
+    float3 skyColor : packoffset(c19.x);
+
+    //Perlin stuff
+    float		PerlinSize;
+    float3		PerlinAmplitude;
+    float3		PerlinOctave;
+    float3		PerlinGradient;
+    float2      PerlinMovement;
 };
 
 
@@ -259,37 +272,66 @@ struct VS_INPUT_WAT
 {
     uint id : SV_VERTEXID;
 };
-#define UV_SCALE 15
 
-
-PS_INPUT VS_WAT(VS_INPUT_WAT input)
+struct PS_INPUT_WAT
 {
-    PS_INPUT output = (PS_INPUT)0;
+    float4 Pos : SV_POSITION;
+    float2 Tex : TEXCOORD0;
+    float4 PosWS : TEXCOORD1;
+};
 
-    output.Pos = mul(gridBuffer[input.id].pos, World);
+#define UV_SCALE 0.2
+
+
+PS_INPUT_WAT VS_WAT(VS_INPUT_WAT input)
+{
+    PS_INPUT_WAT output = (PS_INPUT_WAT)0;
+
+    output.Pos = gridBuffer[input.id].pos;
 
     // intermediate texture coordinates for displacement map
-    float2 tCoord = float2(output.Pos.xz / UV_SCALE);
-    float3 displacement = txDisplacement.SampleLevel(samLinear, tCoord, 0).xyz;
-    output.Pos.xyz += displacement / 500;
+    output.PosWS = output.Pos;
 
-    output.Tex = float2(output.Pos.xz / UV_SCALE);
+    output.Tex = float2(output.Pos.xz * UV_SCALE);
 
-    output.Pos = mul(output.Pos, View);
+    output.Pos = mul(output.Pos, View);  
     output.Pos = mul(output.Pos, Projection);
-
-    
 
     return output;
 }
 
 
-
-float4 PS_WAT( PS_INPUT input ) : SV_Target
+float4 PS_WAT(PS_INPUT_WAT input) : SV_Target
 {
-    return float4(0, 0.2, 1, 1);
-    
-    //float4(txDisplacement.SampleLevel(samLinear, input.Tex, 0).xyz, 1);
+    //constants - move to constant buffer
+    float3 vEyeRay = normalize(eyeVector - input.PosWS);
+    float3 watColor = float3(0.07f, 0.15f, 0.2f);
+    float3 reflectionColor = float3(1, 1, 1);
+    float3 sunDir = float3(0.936016f, 0.0780013f, -0.343206f);
+    float3 sunColor = float3(1, 1, 0.6);
 
-    //return txDiffuse.SampleLevel( samLinear, input.Tex, 0 ) * vMeshColor;
+    // calc normal & reflect
+    float2 ripple = txRipple.Sample(samLinear, input.Tex).xy;
+    float3 normal = normalize(float3(ripple.x, 15, ripple.y));
+
+    //procedural
+    normal = normalize(cross(ddx(input.PosWS), ddy(input.PosWS)));
+
+    float3 vReflect = reflect(-vEyeRay, normal);
+
+    float dotNV = saturate(dot(normal, vEyeRay));
+
+    float4 ramp = txFresnel.Sample(samLinear, dotNV).xyzw; // ramp.x for fresnel term. ramp.y for sky blending
+
+    // Combine waterbody color and reflected color
+    float3 surfaceColor =  lerp(watColor, reflectionColor, ramp.x);
+
+    // sun blicks
+    float specCos = saturate(dot(vReflect, sunDir));
+    float sunSpot = pow(specCos, 400);
+    surfaceColor += sunColor * sunSpot;
+
+
+    float4 res = float4(surfaceColor.xyz, 1);
+    return res;
 }

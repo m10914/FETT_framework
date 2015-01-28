@@ -71,6 +71,25 @@ TestProject::TestProject():
     mGridBuffer = NULL;
     mGridBufferSRV = NULL;
     mGridBufferUAV = NULL;
+
+    // init ocean params
+    oceanDesc = OceanDescription{
+        1.0f, //size
+        0.06f, //speed
+        XMFLOAT3(35, 42, 57), //amplitude
+        XMFLOAT3(1.4f, 1.6f, 2.2f), //gradient
+        XMFLOAT3(1.12f, 0.59f, 0.23f), //octave
+
+        512, //dmap_dim
+        2000.0f, //patch_length
+        0.8f, //time_scale
+        0.35f, //wave_amplitude
+        XMFLOAT2(0.8f, 0.6f), //wind_dir
+        600.0f, //wind_speed
+        0.07f, //wind_dependency
+        1.3f //choppy_scale
+    };
+
 }
 
 TestProject::~TestProject()
@@ -151,6 +170,7 @@ HRESULT TestProject::FrameMove()
 
     // update some buffers
     //---------------
+
     DXCamera* curCamera = bViewCameraMain ? &mainCamera : &observeCamera;
 
     cb.mView = XMMatrixTranspose( curCamera->getViewMatrix() );
@@ -191,6 +211,12 @@ HRESULT TestProject::FrameMove()
     mVMeshColor.z = ( sinf( totalTime * 0.005f ) + 1.0f ) * 0.5f;
     cb.vMeshColor = mVMeshColor;
 
+    auto eye = curCamera->getEye();
+    cb.eyeVector = XMFLOAT4(eye.m128_f32[0], eye.m128_f32[1], eye.m128_f32[2], eye.m128_f32[3]);
+    cb.sunDirection = XMFLOAT4(0, 0, 0, 0);
+    cb.waterColor = XMFLOAT4(0, 0, 0, 0);
+    cb.skyColor = XMFLOAT4(0, 0, 0, 0);
+
 
     //-----------------------------------------------
     // update objects
@@ -213,6 +239,7 @@ HRESULT TestProject::RenderScene()
 	ID3D11SamplerState* aSamplers[] = { mSamplerLinear, mBackbufferSampler, mDepthSampler };
 	mImmediateContext->PSSetSamplers( 0, 3, aSamplers );
     mImmediateContext->VSSetSamplers( 0, 3, aSamplers );
+    mImmediateContext->CSSetSamplers( 0, 3, aSamplers );
 
 
     //--------------------------------------------------------------------
@@ -326,9 +353,15 @@ HRESULT TestProject::RenderScene()
     // projected grid (along with water shader)
     D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Water grid");
     CBForCS cbSurface;
-    bool bGrid = surface.fillConstantBuffer(cbSurface);
+    bool bGrid = surface.fillConstantBuffer(cbSurface, totalTime);
     if(bGrid)
     {
+        //put additional info into constant buffer
+        cbSurface.eyePosition = FUtil::FromVector3(mainCamera.getEye());
+
+
+        ID3D11ShaderResourceView* aRViews[5];
+        
         //--------------------------------
         // do GPU computing 
 
@@ -340,6 +373,10 @@ HRESULT TestProject::RenderScene()
         mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
         mImmediateContext->CSSetConstantBuffers(0, 1, &mCBforCS);
 
+        aRViews[0] = surface.mOceanSimulator->getD3D11DisplacementMap();
+        aRViews[1] = surface.pPerlinSRV;
+        mImmediateContext->CSSetShaderResources(0, 2, aRViews);
+
         // launch!
         int tG = ceil(GRID_DIMENSION/16.f);
         mImmediateContext->Dispatch(tG, tG, 1); //numthreads(16,16,1)
@@ -348,21 +385,24 @@ HRESULT TestProject::RenderScene()
         aUAViews[0] = NULL;
         mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
 
+        aRViews[0] = NULL;
+        aRViews[1] = NULL;
+        mImmediateContext->CSSetShaderResources(0, 2, aRViews);
 
 
         //----------------------------------
         // do rendering
         
         // bind computed buffer
-        ID3D11ShaderResourceView* aRViews[3] = {
-            mGridBufferSRV,
-            surface.mOceanSimulator->getD3D11DisplacementMap(),
-            surface.mOceanSimulator->getD3D11GradientMap()
-        };
-        mImmediateContext->VSSetShaderResources(3, 3, aRViews);
-        mImmediateContext->PSSetShaderResources(3, 3, aRViews);
+        aRViews[0] = mGridBufferSRV;
+        aRViews[1] = surface.mOceanSimulator->getD3D11DisplacementMap();
+        aRViews[2] = surface.mOceanSimulator->getD3D11GradientMap();
+        aRViews[3] = surface.pFresnelSRV;
+        aRViews[4] = surface.pPerlinSRV;
+        mImmediateContext->VSSetShaderResources(3, 5, aRViews);
+        mImmediateContext->PSSetShaderResources(3, 5, aRViews);
 
-        mImmediateContext->RSSetState( mRSWireframe );
+        mImmediateContext->RSSetState( mRSOrdinary );
         mImmediateContext->IASetInputLayout( NULL );
 
         mImmediateContext->VSSetShader(mVertexShaderWater, NULL, 0);
@@ -370,6 +410,18 @@ HRESULT TestProject::RenderScene()
             
         cb.vMeshColor = XMFLOAT4(0, 1, 0, 1);
         surface.position = XMFLOAT3(0, 0, 0);
+
+        //add perlin vars
+        // set perlin params
+        cb.PerlinAmplitude = g_PerlinAmplitude;
+        cb.PerlinGradient = g_PerlinGradient;
+        cb.PerlinOctave = g_PerlinOctave;
+        cb.PerlinSize = g_PerlinSize;
+
+        float mul = (float)totalTime * 0.001 * g_PerlinSpeed;
+        XMFLOAT2 perlin_move = XMFLOAT2(mul*windDir.x, mul*windDir.y);
+        buffrer.PerlinMovement = perlin_move;
+
         FUtil::RenderPrimitive(&surface, mImmediateContext, cb, mCBChangesEveryFrame);
 
         ID3D11ShaderResourceView* aRViewsNULL[3] = { NULL, NULL, NULL };
@@ -383,6 +435,8 @@ HRESULT TestProject::RenderScene()
 
     //quads   
     {
+        mImmediateContext->IASetInputLayout( mLayoutPT );
+
         D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 0, 0), L"Quads");
 
         mImmediateContext->PSSetShader(mPixelShaderQuad, NULL, 0);
@@ -639,7 +693,7 @@ HRESULT TestProject::InitScene()
 	cube.Init(mDevice);
 	plane.Init(mDevice);
 
-    surface.Init(mDevice);
+    surface.Init(mDevice, &oceanDesc);
     surface.setCamera(&mainCamera);
 
     // Define the input layout
