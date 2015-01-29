@@ -14,7 +14,7 @@ void OceanDescription::update(double appTime)
 {
     // update perlin_move
     float mul = (float)appTime * 0.001 * PerlinSpeed;
-    this->PerlinMove = XMFLOAT2(mul*wind_dir.x, mul*wind_dir.y);
+    this->PerlinMove = XMFLOAT2(mul*wind_dir.x, -mul*wind_dir.y);
 }
 
 void OceanDescription::set(

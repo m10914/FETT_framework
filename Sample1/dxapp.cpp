@@ -321,7 +321,7 @@ HRESULT DXApp::Render()
 
 	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView );
 
-	float ClearColor[4] = { 0.525f, 0.525f, 0.525f, 1.0f }; // red, green, blue, alpha
+    float ClearColor[4] = { 1, 1, 1, 1.0f }; // red, green, blue, alpha
 	mImmediateContext->ClearRenderTargetView( mRenderTargetView, ClearColor );
 	mImmediateContext->ClearDepthStencilView( mDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 	

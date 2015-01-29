@@ -267,8 +267,8 @@ Water shader
 -----------------------------------------------------
 */
 
-#define PATCH_BLEND_BEGIN		3
-#define PATCH_BLEND_END			65
+#define PATCH_BLEND_BEGIN		5
+#define PATCH_BLEND_END			45
 #define UV_SCALE 0.2
 
 
@@ -324,9 +324,9 @@ float4 PS_WAT(PS_INPUT_WAT input) : SV_Target
 
     // get perlin noise    
     float2 perlin_tc = input.Tex * PerlinSize;
-    float2 perlin_tc0 = (blendFactor < 1) ? perlin_tc * PerlinOctave.x + PerlinMovement : 0;
-    float2 perlin_tc1 = (blendFactor < 1) ? perlin_tc * PerlinOctave.y + PerlinMovement : 0;
-    float2 perlin_tc2 = (blendFactor < 1) ? perlin_tc * PerlinOctave.z + PerlinMovement : 0;
+    float2 perlin_tc0 = (blendFactor < 1) ? perlin_tc * PerlinOctave.x - PerlinMovement : 0;
+    float2 perlin_tc1 = (blendFactor < 1) ? perlin_tc * PerlinOctave.y - PerlinMovement : 0;
+    float2 perlin_tc2 = (blendFactor < 1) ? perlin_tc * PerlinOctave.z - PerlinMovement : 0;
 
     float2 perlin_0 = txPerlin.Sample(samLinear, perlin_tc0).xy;
     float2 perlin_1 = txPerlin.Sample(samLinear, perlin_tc1).xy;
@@ -335,8 +335,7 @@ float4 PS_WAT(PS_INPUT_WAT input) : SV_Target
 
     // blend perlin and riplle
     ripple = lerp(perlin, ripple, blendFactor);
-
-    float3 normal = normalize(float3(ripple.x, 15, ripple.y));
+    float3 normal = normalize(float3(ripple.x, 6.812, ripple.y));
 
     //procedural
     //normal = normalize(cross(ddx(input.PosWS), ddy(input.PosWS)));
@@ -348,7 +347,7 @@ float4 PS_WAT(PS_INPUT_WAT input) : SV_Target
     float4 ramp = txFresnel.Sample(samLinear, dotNV).xyzw; // ramp.x for fresnel term. ramp.y for sky blending
 
     // Combine waterbody color and reflected color
-    float3 surfaceColor =  lerp(watColor, reflectionColor, ramp.x);
+    float3 surfaceColor = lerp(watColor, reflectionColor, ramp.x);
 
     // sun blicks
     float specCos = saturate(dot(vReflect, sunDir));

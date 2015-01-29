@@ -12,8 +12,8 @@ compute shader
 #define width 256
 #define UV_SCALE 0.2
 #define DISPLACE 0.003
-#define PATCH_BLEND_BEGIN		3
-#define PATCH_BLEND_END			65
+#define PATCH_BLEND_BEGIN		5
+#define PATCH_BLEND_END			45
 
 
 SamplerState samLinear : register(s0);
@@ -92,14 +92,14 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
     if (blendFactor < 1)
     {
         float2 perlin_tc = tCoord * PerlinSize;
-        float perlin_0 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.x + PerlinMovement, 0).w;
-        float perlin_1 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.y + PerlinMovement, 0).w;
-        float perlin_2 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.z + PerlinMovement, 0).w;
+        float perlin_0 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.x - PerlinMovement, 0).w;
+        float perlin_1 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.y - PerlinMovement, 0).w;
+        float perlin_2 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.z - PerlinMovement, 0).w;
 
         perlin = perlin_0 * PerlinAmplitude.x + perlin_1 * PerlinAmplitude.y + perlin_2 * PerlinAmplitude.z;
     }
 
-    displacement = lerp(float3(0, perlin, 0), displacement, blendFactor); // lerp perlin into displacement
+    displacement = lerp(float3(0, perlin*0.2, 0), displacement, blendFactor); // lerp perlin into displacement
 
     // apply displacement
     result.xyz += displacement * DISPLACE;
