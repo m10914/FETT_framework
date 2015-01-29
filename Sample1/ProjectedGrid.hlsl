@@ -12,8 +12,8 @@ compute shader
 #define width 256
 #define UV_SCALE 0.2
 #define DISPLACE 0.003
-#define PATCH_BLEND_BEGIN		800
-#define PATCH_BLEND_END			20000
+#define PATCH_BLEND_BEGIN		3
+#define PATCH_BLEND_END			65
 
 
 SamplerState samLinear : register(s0);
@@ -30,22 +30,23 @@ RWStructuredBuffer<Pos> gridBuffer : register(u0);
 
 cbuffer cbFrame : register(b0)
 {
-    float4 dTexCoord;
+    // ordinary data
+    float4 dTexCoord : packoffset(c0.x);
 
-    float4 vCorner0;
-    float4 vCorner1;
-    float4 vCorner2;
-    float4 vCorner3;
+    float4 vCorner0 : packoffset(c1.x);
+    float4 vCorner1 : packoffset(c2.x);
+    float4 vCorner2 : packoffset(c3.x);
+    float4 vCorner3 : packoffset(c4.x);
 
-    float4x4 World;
-    float3 eyePosition;
+    float4x4 World : packoffset(c5.x);
+    float3 eyePosition : packoffset(c9.x);
 
     // Perlin noise for distant wave crest
-    float		PerlinSize;
-    float3		PerlinAmplitude;
-    float3		PerlinOctave;
-    float3		PerlinGradient;
-    float2      PerlinMovement;
+    float		PerlinSize : packoffset(c10.x);
+    float3		PerlinAmplitude : packoffset(c11.x);
+    float3		PerlinOctave : packoffset(c12.x);
+    float3		PerlinGradient : packoffset(c13.x);
+    float2      PerlinMovement : packoffset(c14.x);
 };
 
 
@@ -79,20 +80,18 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
     result = mul(result, World);
 
     float3 vecEye = result.xyz - eyePosition;
-    float distXY = length(vecEye.xy);
-    float blendFactor = saturate( (PATCH_BLEND_END - distXY) / (PATCH_BLEND_END - PATCH_BLEND_BEGIN) );
-    blendFactor = 1;
+    float distXZ = length(vecEye.xz);
+    float blendFactor = saturate((PATCH_BLEND_END - distXZ) / (PATCH_BLEND_END - PATCH_BLEND_BEGIN));
 
     // intermediate texture coordinates for displacement map
     float2 tCoord = float2(result.xz * UV_SCALE);
     float3 displacement = txDisplacement.SampleLevel(samLinear, tCoord, 0).xzy;
     
-
     // Add perlin noise to distant patches
     float perlin = 0;
     if (blendFactor < 1)
     {
-        float2 perlin_tc = tCoord * PerlinSize * 0.0001;
+        float2 perlin_tc = tCoord * PerlinSize;
         float perlin_0 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.x + PerlinMovement, 0).w;
         float perlin_1 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.y + PerlinMovement, 0).w;
         float perlin_2 = txPerlin.SampleLevel(samLinear, perlin_tc * PerlinOctave.z + PerlinMovement, 0).w;
@@ -100,10 +99,9 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
         perlin = perlin_0 * PerlinAmplitude.x + perlin_1 * PerlinAmplitude.y + perlin_2 * PerlinAmplitude.z;
     }
 
+    displacement = lerp(float3(0, perlin, 0), displacement, blendFactor); // lerp perlin into displacement
 
-    displacement = float3(0, perlin, 0);// lerp(float3(0, 0, perlin), displacement, blendFactor); //lerp perlin into displacement
-
-    //apply displacement
+    // apply displacement
     result.xyz += displacement * DISPLACE;
 
     gridBuffer[index].pos = float4(result.xyz, 1);

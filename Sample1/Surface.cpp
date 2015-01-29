@@ -10,6 +10,47 @@
 #include "FUtil.h"
 
 
+void OceanDescription::update(double appTime)
+{
+    // update perlin_move
+    float mul = (float)appTime * 0.001 * PerlinSpeed;
+    this->PerlinMove = XMFLOAT2(mul*wind_dir.x, mul*wind_dir.y);
+}
+
+void OceanDescription::set(
+    float iPerlinSize,
+    float iPerlinSpeed,
+    XMFLOAT3	iPerlinAmplitude,
+    XMFLOAT3	iPerlinOctave,
+    XMFLOAT3	iPerlinGradient,
+    int idmap_dim,
+    float ipatch_length,
+    float itime_scale,
+    float iwave_amplitude,
+    XMFLOAT2 iwind_dir,
+    float iwind_speed,
+    float iwind_dependency,
+    float ichoppy_scale)
+{
+    PerlinSize = iPerlinSize;
+    PerlinSpeed = iPerlinSpeed;
+    PerlinAmplitude = iPerlinAmplitude;
+    PerlinOctave = iPerlinOctave;
+    PerlinGradient = iPerlinGradient;
+    dmap_dim = idmap_dim;
+    patch_length = ipatch_length;
+    time_scale = itime_scale;
+    wave_amplitude = iwave_amplitude;
+    wind_dir = iwind_dir;
+    wind_speed = iwind_speed;
+    wind_dependency = iwind_dependency;
+    choppy_scale = ichoppy_scale;
+
+    this->update(0);
+}
+
+
+
 FSurface::FSurface() : 
     SizeX(GRID_DIMENSION), SizeY(GRID_DIMENSION)
 {
@@ -131,14 +172,11 @@ bool FSurface::fillConstantBuffer(CBForCS& buffrer, double appTime)
         buffrer.worldMatrix = XMMatrixTranspose(mat);
 
         // set perlin params
-        buffrer.PerlinAmplitude = pOceanDesc->PerlinAmplitude;
-        buffrer.PerlinGradient = g_PerlinGradient;
-        buffrer.PerlinOctave = g_PerlinOctave;
-        buffrer.PerlinSize = g_PerlinSize;
-
-        float mul = (float)appTime * 0.001 * g_PerlinSpeed;
-        XMFLOAT2 perlin_move = XMFLOAT2(mul*windDir.x, mul*windDir.y);
-        buffrer.PerlinMovement = perlin_move;
+        buffrer.PerlinAmplitude = XMFLOAT4(pOceanDesc->PerlinAmplitude.x, pOceanDesc->PerlinAmplitude.y, pOceanDesc->PerlinAmplitude.z, 0);
+        buffrer.PerlinGradient = XMFLOAT4(pOceanDesc->PerlinGradient.x, pOceanDesc->PerlinGradient.y, pOceanDesc->PerlinGradient.z, 0);
+        buffrer.PerlinOctave = XMFLOAT4(pOceanDesc->PerlinOctave.x, pOceanDesc->PerlinOctave.y, pOceanDesc->PerlinOctave.z, 0);
+        buffrer.PerlinSize = XMFLOAT4(pOceanDesc->PerlinSize, 0, 0, 0);
+        buffrer.PerlinMovement = XMFLOAT4(pOceanDesc->PerlinMove.x, pOceanDesc->PerlinMove.x, 0, 0);
     }
 
     return bVisible;
@@ -356,6 +394,8 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
 
 HRESULT FSurface::Init(LPD3D11Device device, OceanDescription* desc)
 {
+    this->Init(device);
+
     //store ocean description
     this->pOceanDesc = desc;
 
@@ -371,14 +411,14 @@ void FSurface::initOcean(LPD3D11Device device)
         // Create ocean simulating object (copy from desc)
         OceanParameter ocean_param;
 
-        ocean_param.dmap_dim = 512;
-        ocean_param.patch_length = 2000.0f;
-        ocean_param.time_scale = 0.8f;
-        ocean_param.wave_amplitude = 0.35f;
-        ocean_param.wind_dir = D3DXVECTOR2(windDir.x, windDir.y);
-        ocean_param.wind_speed = 600.0f;
-        ocean_param.wind_dependency = 0.07f;
-        ocean_param.choppy_scale = 1.3f;
+        ocean_param.dmap_dim = pOceanDesc->dmap_dim;
+        ocean_param.patch_length = pOceanDesc->patch_length;
+        ocean_param.time_scale = pOceanDesc->time_scale;
+        ocean_param.wave_amplitude = pOceanDesc->wave_amplitude;
+        ocean_param.wind_dir = D3DXVECTOR2(pOceanDesc->wind_dir.x, pOceanDesc->wind_dir.y);
+        ocean_param.wind_speed = pOceanDesc->wind_speed;
+        ocean_param.wind_dependency = pOceanDesc->wind_dependency;
+        ocean_param.choppy_scale = pOceanDesc->choppy_scale;
 
         mOceanSimulator = new OceanSimulator(ocean_param, device);
 

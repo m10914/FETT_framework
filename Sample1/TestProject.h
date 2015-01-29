@@ -34,47 +34,9 @@
 // Structures
 //--------------------------------------------------------------------------------------
 
-struct OceanDescription
-{
-    //perlin part
-    float		PerlinSize;
-    float       PerlinSpeed;
-    XMFLOAT3	PerlinAmplitude;
-    XMFLOAT3	PerlinOctave;
-    XMFLOAT3	PerlinGradient;
-
-    // common part
-
-    // Must be power of 2.
-    int dmap_dim;
-    // Typical value is 1000 ~ 2000
-    float patch_length;
-    // Adjust the time interval for simulation.
-    float time_scale;
-    // Amplitude for transverse wave. Around 1.0
-    float wave_amplitude;
-    // Wind direction. Normalization not required.
-    XMFLOAT2 wind_dir;
-    // Around 100 ~ 1000
-    float wind_speed;
-    // This value damps out the waves against the wind direction.
-    // Smaller value means higher wind dependency.
-    float wind_dependency;
-    // The amplitude for longitudinal wave. Must be positive.
-    float choppy_scale;
-};
 
 
-struct __declspec(align(16)) CBPerlinBuffer
-{
-    float		PerlinSize;
-    XMFLOAT3	PerlinAmplitude;
-    XMFLOAT3	PerlinOctave;
-    XMFLOAT3	PerlinGradient;
-    XMFLOAT2    PerlinMovement;
-};
-
-struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet, CBPerlinBuffer
+struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet
 {
     XMFLOAT4 mScreenParams;
     XMFLOAT4 mPerspectiveValues;
@@ -86,6 +48,12 @@ struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet, CBPerlinBuffer
     XMFLOAT4 sunDirection;
     XMFLOAT4 waterColor;
     XMFLOAT4 skyColor;
+
+    XMFLOAT4 PerlinSize;
+    XMFLOAT4 PerlinAmplitude;
+    XMFLOAT4 PerlinOctave;
+    XMFLOAT4 PerlinGradient;
+    XMFLOAT4 PerlinMovement;
 };
 
 

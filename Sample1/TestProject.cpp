@@ -73,12 +73,12 @@ TestProject::TestProject():
     mGridBufferUAV = NULL;
 
     // init ocean params
-    oceanDesc = OceanDescription{
+    oceanDesc.set(
         1.0f, //size
         0.06f, //speed
         XMFLOAT3(35, 42, 57), //amplitude
-        XMFLOAT3(1.4f, 1.6f, 2.2f), //gradient
         XMFLOAT3(1.12f, 0.59f, 0.23f), //octave
+        XMFLOAT3(1.4f, 1.6f, 2.2f), //gradient
 
         512, //dmap_dim
         2000.0f, //patch_length
@@ -88,7 +88,7 @@ TestProject::TestProject():
         600.0f, //wind_speed
         0.07f, //wind_dependency
         1.3f //choppy_scale
-    };
+    );
 
 }
 
@@ -212,7 +212,7 @@ HRESULT TestProject::FrameMove()
     cb.vMeshColor = mVMeshColor;
 
     auto eye = curCamera->getEye();
-    cb.eyeVector = XMFLOAT4(eye.m128_f32[0], eye.m128_f32[1], eye.m128_f32[2], eye.m128_f32[3]);
+    cb.eyeVector = XMFLOAT4(XMVectorGetX(eye), XMVectorGetY(eye), XMVectorGetZ(eye), XMVectorGetW(eye));
     cb.sunDirection = XMFLOAT4(0, 0, 0, 0);
     cb.waterColor = XMFLOAT4(0, 0, 0, 0);
     cb.skyColor = XMFLOAT4(0, 0, 0, 0);
@@ -220,6 +220,8 @@ HRESULT TestProject::FrameMove()
 
     //-----------------------------------------------
     // update objects
+
+    oceanDesc.update(totalTime);
 
     D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 0, 0, 0), L"Update surface");
     surface.Update(totalTime, deltaTime);
@@ -357,8 +359,7 @@ HRESULT TestProject::RenderScene()
     if(bGrid)
     {
         //put additional info into constant buffer
-        cbSurface.eyePosition = FUtil::FromVector3(mainCamera.getEye());
-
+        cbSurface.eyePosition = FUtil::FromVector4(mainCamera.getEye());
 
         ID3D11ShaderResourceView* aRViews[5];
         
@@ -413,14 +414,12 @@ HRESULT TestProject::RenderScene()
 
         //add perlin vars
         // set perlin params
-        cb.PerlinAmplitude = g_PerlinAmplitude;
-        cb.PerlinGradient = g_PerlinGradient;
-        cb.PerlinOctave = g_PerlinOctave;
-        cb.PerlinSize = g_PerlinSize;
 
-        float mul = (float)totalTime * 0.001 * g_PerlinSpeed;
-        XMFLOAT2 perlin_move = XMFLOAT2(mul*windDir.x, mul*windDir.y);
-        buffrer.PerlinMovement = perlin_move;
+        cb.PerlinAmplitude = XMFLOAT4(oceanDesc.PerlinAmplitude.x, oceanDesc.PerlinAmplitude.y, oceanDesc.PerlinAmplitude.z, 0);
+        cb.PerlinGradient = XMFLOAT4(oceanDesc.PerlinGradient.x, oceanDesc.PerlinGradient.y, oceanDesc.PerlinGradient.z, 0);
+        cb.PerlinOctave = XMFLOAT4(oceanDesc.PerlinOctave.x, oceanDesc.PerlinOctave.y, oceanDesc.PerlinOctave.z, 0);
+        cb.PerlinSize = XMFLOAT4(oceanDesc.PerlinSize, 0, 0, 0);
+        cb.PerlinMovement = XMFLOAT4(oceanDesc.PerlinMove.x, oceanDesc.PerlinMove.x, 0, 0);
 
         FUtil::RenderPrimitive(&surface, mImmediateContext, cb, mCBChangesEveryFrame);
 

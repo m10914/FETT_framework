@@ -370,7 +370,7 @@ void OceanSimulator::initHeightMap(OceanParameter& params, D3DXVECTOR2* out_h0, 
 	D3DXVECTOR2 K, Kn;
 
 	D3DXVECTOR2 wind_dir;
-	D3DXVec2Normalize(&wind_dir, &params.wind_dir);
+    D3DXVec2Normalize(&wind_dir, &params.wind_dir);
 	float a = params.wave_amplitude * 1e-7f;	// It is too small. We must scale it for editing.
 	float v = params.wind_speed;
 	float dir_depend = params.wind_dependency;

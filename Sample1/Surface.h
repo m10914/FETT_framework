@@ -23,13 +23,62 @@
 #include "camera.h"
 #include "FFT/ocean_simulator.h"
 
-
 #define GRID_DIMENSION 256 //must be a multiple of 16
 #define FRESNEL_TEX_SIZE 256
 #define PERLIN_TEX_SIZE 64
 
+struct OceanDescription
+{
+   //perlin buffer
+   float PerlinSize;
+   float PerlinSpeed;
+   XMFLOAT3	PerlinAmplitude;
+   XMFLOAT3	PerlinOctave;
+   XMFLOAT3	PerlinGradient;
 
-struct OceanDescription;
+   XMFLOAT2 PerlinMove;
+
+   // common part
+
+   // Must be power of 2.
+   int dmap_dim;
+   // Typical value is 1000 ~ 2000
+   float patch_length;
+   // Adjust the time interval for simulation.
+   float time_scale;
+   // Amplitude for transverse wave. Around 1.0
+   float wave_amplitude;
+   // Wind direction. Normalization not required.
+   XMFLOAT2 wind_dir;
+   // Around 100 ~ 1000
+   float wind_speed;
+   // This value damps out the waves against the wind direction.
+   // Smaller value means higher wind dependency.
+   float wind_dependency;
+   // The amplitude for longitudinal wave. Must be positive.
+   float choppy_scale;
+
+
+   //---------------------------------
+   // methods
+
+   void update(double appTime);
+   void set(
+       float iPerlinSize,
+       float iPerlinSpeed,
+       XMFLOAT3	iPerlinAmplitude,
+       XMFLOAT3	iPerlinOctave,
+       XMFLOAT3	iPerlinGradient,
+       int idmap_dim,
+       float ipatch_length,
+       float itime_scale,
+       float iwave_amplitude,
+       XMFLOAT2 iwind_dir,
+       float iwind_speed,
+       float iwind_dependency,
+       float ichoppy_scale);
+};
+
 
 
 // structure to be processed in compute shader
@@ -44,14 +93,13 @@ struct __declspec(align(16)) CBForCS
     XMFLOAT4 vCorner3;
 
     XMMATRIX worldMatrix;
-    XMFLOAT3 eyePosition;
+    XMFLOAT4 eyePosition;
 
-    //perlin stuff
-    float		PerlinSize;
-    XMFLOAT3	PerlinAmplitude;
-    XMFLOAT3	PerlinOctave;
-    XMFLOAT3	PerlinGradient;
-    XMFLOAT2    PerlinMovement;
+    XMFLOAT4	PerlinSize;
+    XMFLOAT4	PerlinAmplitude;
+    XMFLOAT4	PerlinOctave;
+    XMFLOAT4	PerlinGradient;
+    XMFLOAT4    PerlinMovement;
 };
 
 
@@ -65,7 +113,8 @@ public:
     XMMATRIX projectorWorldViewInverted;
 
     // FPrimitive implementation
-    virtual	HRESULT Init(LPD3D11Device device, OceanDescription* desc) override;
+    HRESULT Init(LPD3D11Device device, OceanDescription* desc);
+    virtual HRESULT Init(LPD3D11Device device) override { return S_OK; };
     virtual HRESULT Render(LPD3DDeviceContext context) override;
     virtual HRESULT Release() override;
     

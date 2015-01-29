@@ -45,17 +45,17 @@ cbuffer cbChangesEveryFrame : register( b0 )
     float4 vMeshColor : packoffset(c14.x);
     float4 SSRParams : packoffset(c15.x); //x - numsteps, y - depth bias, z - pixelsize, w - reserved	
 
-    float3 eyeVector : packoffset(c16.x);
-    float3 sunDirection : packoffset(c17.x);
-    float3 waterColor : packoffset(c18.x);
-    float3 skyColor : packoffset(c19.x);
+    float4 eyeVector : packoffset(c16.x);
+    float4 sunDirection : packoffset(c17.x);
+    float4 waterColor : packoffset(c18.x);
+    float4 skyColor : packoffset(c19.x);
 
     //Perlin stuff
-    float		PerlinSize;
-    float3		PerlinAmplitude;
-    float3		PerlinOctave;
-    float3		PerlinGradient;
-    float2      PerlinMovement;
+    float		PerlinSize : packoffset(c20.x);
+    float3		PerlinAmplitude : packoffset(c21.x);
+    float3		PerlinOctave : packoffset(c22.x);
+    float3		PerlinGradient : packoffset(c23.x);
+    float2      PerlinMovement : packoffset(c24.x);
 };
 
 
@@ -267,6 +267,11 @@ Water shader
 -----------------------------------------------------
 */
 
+#define PATCH_BLEND_BEGIN		3
+#define PATCH_BLEND_END			65
+#define UV_SCALE 0.2
+
+
 
 struct VS_INPUT_WAT
 {
@@ -279,8 +284,6 @@ struct PS_INPUT_WAT
     float2 Tex : TEXCOORD0;
     float4 PosWS : TEXCOORD1;
 };
-
-#define UV_SCALE 0.2
 
 
 PS_INPUT_WAT VS_WAT(VS_INPUT_WAT input)
@@ -303,7 +306,8 @@ PS_INPUT_WAT VS_WAT(VS_INPUT_WAT input)
 
 float4 PS_WAT(PS_INPUT_WAT input) : SV_Target
 {
-    //constants - move to constant buffer
+    // constants - move to constant buffer
+    // TODO
     float3 vEyeRay = normalize(eyeVector - input.PosWS);
     float3 watColor = float3(0.07f, 0.15f, 0.2f);
     float3 reflectionColor = float3(1, 1, 1);
@@ -312,10 +316,30 @@ float4 PS_WAT(PS_INPUT_WAT input) : SV_Target
 
     // calc normal & reflect
     float2 ripple = txRipple.Sample(samLinear, input.Tex).xy;
+   
+    
+    float dist2d = length(eyeVector.xz - input.PosWS.xz);
+    float blendFactor = (PATCH_BLEND_END - dist2d) / (PATCH_BLEND_END - PATCH_BLEND_BEGIN);
+    blendFactor = saturate(blendFactor * blendFactor * blendFactor);
+
+    // get perlin noise    
+    float2 perlin_tc = input.Tex * PerlinSize;
+    float2 perlin_tc0 = (blendFactor < 1) ? perlin_tc * PerlinOctave.x + PerlinMovement : 0;
+    float2 perlin_tc1 = (blendFactor < 1) ? perlin_tc * PerlinOctave.y + PerlinMovement : 0;
+    float2 perlin_tc2 = (blendFactor < 1) ? perlin_tc * PerlinOctave.z + PerlinMovement : 0;
+
+    float2 perlin_0 = txPerlin.Sample(samLinear, perlin_tc0).xy;
+    float2 perlin_1 = txPerlin.Sample(samLinear, perlin_tc1).xy;
+    float2 perlin_2 = txPerlin.Sample(samLinear, perlin_tc2).xy;
+    float2 perlin = (perlin_0 * PerlinGradient.x + perlin_1 * PerlinGradient.y + perlin_2 * PerlinGradient.z);
+
+    // blend perlin and riplle
+    ripple = lerp(perlin, ripple, blendFactor);
+
     float3 normal = normalize(float3(ripple.x, 15, ripple.y));
 
     //procedural
-    normal = normalize(cross(ddx(input.PosWS), ddy(input.PosWS)));
+    //normal = normalize(cross(ddx(input.PosWS), ddy(input.PosWS)));
 
     float3 vReflect = reflect(-vEyeRay, normal);
 
