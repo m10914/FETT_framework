@@ -22,74 +22,8 @@ DXApp* initApplication()
 
 
 TestProject::TestProject():
-
-	mLayoutPT(NULL),
-    mLayoutPNT(NULL),
-
-	mTextureRV(NULL),
-	
-	mSamplerLinear(NULL),
-	mBackbufferSampler(NULL),
-	mDepthSampler(NULL),
-
-	mVMeshColor( 0.7f, 0.7f, 0.7f, 1.0f ),
-
-	mRTSecondTex(NULL),
-	mRTSecondRV(NULL),
-	mRTSecondRTV(NULL),
-	mDSSecondTex(NULL),
-	mDSSecondRV(NULL),
-	mDSSecondDSV(NULL),
-
-    mRSCullNone(NULL),
-    mRSOrdinary(NULL)
+	mVMeshColor( 0.7f, 0.7f, 0.7f, 1.0f )
 {
-    mVertexShader = NULL;
-    mPixelShader = NULL;
-
-    mPixelShaderQuad = NULL;
-    mVertexShaderQuad = NULL;
-
-    mVertexShaderReflection = NULL;
-    mPixelShaderReflection = NULL;
-
-    mVertexShaderWater = NULL;
-    mPixelShaderWater = NULL;
-
-
-    mCBChangesEveryFrame = NULL;
-    mCBforCS = NULL;
-
-
-    //----------------------------------------------------
-    // projected grid
-
-    surface = FSurface();
-
-    // compute shader for projected grid
-    mCS = NULL;
-    mGridBuffer = NULL;
-    mGridBufferSRV = NULL;
-    mGridBufferUAV = NULL;
-
-    // init ocean params
-    oceanDesc.set(
-        1.0f, //size
-        0.06f, //speed
-        XMFLOAT3(35, 42, 57), //amplitude
-        XMFLOAT3(1.12f, 0.59f, 0.23f), //octave
-        XMFLOAT3(1.4f, 1.6f, 2.2f), //gradient
-
-        512, //dmap_dim
-        2000.0f, //patch_length
-        0.8f, //time_scale
-        0.35f, //wave_amplitude
-        XMFLOAT2(0.8f, 0.6f), //wind_dir
-        600.0f, //wind_speed
-        0.07f, //wind_dependency
-        1.3f //choppy_scale
-    );
-
 }
 
 TestProject::~TestProject()
@@ -103,12 +37,16 @@ HRESULT TestProject::FrameMove()
     // keyboard
     //----------------------------------
 
-    /*if(isKeyPressed(DIK_ESCAPE))
-        exit(1);*/
-    if(isKeyPressed(DIK_TAB))
-        bViewCameraMain = !bViewCameraMain;
-    if(isKeyPressed(DIK_C))
-        bControlCameraMain = !bControlCameraMain;
+    if(isKeyPressed(DIK_ESCAPE))
+        exit(1);
+	if (isKeyPressed(DIK_TAB))
+	{
+		//change mode
+		mCurrentControlState = (ControlState)(mCurrentControlState + 1);
+		if (mCurrentControlState == CS_NumStates)
+			mCurrentControlState = CS_Default;
+	}
+
 
     // move camera
     XMFLOAT3 offset = XMFLOAT3(0,0,0);
@@ -138,7 +76,7 @@ HRESULT TestProject::FrameMove()
     }
 
 
-    // update cameras
+    // update camera and lights
     //---------------
     
     // keyboard camera control - if mouse is disabled somehow
@@ -156,54 +94,33 @@ HRESULT TestProject::FrameMove()
             mouseDX += deltaTime * 5.0f;
     }
 
-    if(bControlCameraMain)
-    {
+	// update camera and lightsource
+    if(mCurrentControlState == CS_Default)
         mainCamera.FrameMove(offset, XMFLOAT3(mouseDX, mouseDY, mouseDZ));
-        observeCamera.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(0,0,0));
-    }
     else
-    {
         mainCamera.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(0,0,0));
-        observeCamera.FrameMove(offset, XMFLOAT3(mouseDX, mouseDY, mouseDZ));
-    }
+
+	if (mCurrentControlState == CS_FPSCamera)
+	{
+		//TODO
+	}
+
+	if (mCurrentControlState == CS_MoveLight)
+		mDirLight.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(mouseDX, mouseDY, mouseDZ));
+	else mDirLight.FrameMove(XMFLOAT3(0, 0, 0), XMFLOAT3(0, 0, 0));
+
 
 
     // update some buffers
     //---------------
 
-    DXCamera* curCamera = bViewCameraMain ? &mainCamera : &observeCamera;
+	DXCamera* curCamera = &mainCamera; //select camera
 
     cb.mView = XMMatrixTranspose( curCamera->getViewMatrix() );
 
-    cb.SSRParams = XMFLOAT4(
-        32.0f,
-        0.0025f,
-        42.0 / swapChainDesc.BufferDesc.Height,
-        0
-        );
-
-    cb.mScreenParams = XMFLOAT4(
-        swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height,
-        curCamera->getNearPlane(), curCamera->getFarPlane() );
 
     XMMATRIX mProjection = curCamera->getProjMatrix();
     cb.mProjection = XMMatrixTranspose( mProjection );
-
-    cb.mScreenParams =
-        XMFLOAT4(
-        swapChainDesc.BufferDesc.Width,
-        swapChainDesc.BufferDesc.Height,
-        curCamera->getNearPlane(),
-        curCamera->getFarPlane()
-        );
-
-    cb.mPerspectiveValues =
-        XMFLOAT4(
-        1.0f / mProjection.m[0][0],
-        1.0f / mProjection.m[1][1],
-        mProjection.m[3][2],
-        -mProjection.m[2][2]
-    );
 
     // Modify the color based on time
     mVMeshColor.x = ( sinf( totalTime * 0.001f ) + 1.0f ) * 0.5f;
@@ -211,21 +128,12 @@ HRESULT TestProject::FrameMove()
     mVMeshColor.z = ( sinf( totalTime * 0.005f ) + 1.0f ) * 0.5f;
     cb.vMeshColor = mVMeshColor;
 
-    auto eye = curCamera->getEye();
-    cb.eyeVector = XMFLOAT4(XMVectorGetX(eye), XMVectorGetY(eye), XMVectorGetZ(eye), XMVectorGetW(eye));
-    cb.sunDirection = XMFLOAT4(0, 0, 0, 0);
-    cb.waterColor = XMFLOAT4(0, 0, 0, 0);
-    cb.skyColor = XMFLOAT4(0, 0, 0, 0);
-
 
     //-----------------------------------------------
     // update objects
 
-    oceanDesc.update(totalTime);
 
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 0, 0, 0), L"Update surface");
-    surface.Update(totalTime, deltaTime);
-    D3DPERF_EndEvent();
+
 
     return S_OK;
 }
@@ -245,9 +153,13 @@ HRESULT TestProject::RenderScene()
 
 
     //--------------------------------------------------------------------
-    // TO TEXTURE
+    // TO SECOND RT
 
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 255, 0), L"RT render");
+	D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 255, 0), L"RT render");
+
+	UINT sref = 0;
+	mImmediateContext->OMSetDepthStencilState(mDSOrdinary, sref);
+
 
 	// set RT and clear it
 	mImmediateContext->OMSetRenderTargets( 1, &mRTSecondRTV, mDSSecondDSV);
@@ -275,8 +187,14 @@ HRESULT TestProject::RenderScene()
     // it's the same cube actually
 	if(true)
     {
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Render scene - g-buffer");
 
+		//plane
+		plane.position = XMFLOAT3(0, -0.5, 0);
+		plane.scale = XMFLOAT3(100, 1, 100);
+		FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
+
+		//cubes
         cube.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
@@ -290,40 +208,81 @@ HRESULT TestProject::RenderScene()
 	}
 
 
+	D3DPERF_EndEvent();
 
-    D3DPERF_EndEvent();
+
+
 
 
 	//--------------------------------------------------------------------
-	// TO BACKBUFFER
+	// DEFERRED
 
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Backbuffer render");
+	D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 255, 0), L"-= Shadow Maps =-");
 
-	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView);
 
-	// render cubes
-	if(true){
+	// placeholder - just render from light's position
+	mImmediateContext->OMSetRenderTargets(0, NULL, mShadowMapDSV);
+	mImmediateContext->ClearDepthStencilView(mShadowMapDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
+	mDirLight.GetProjectionMatrix(&cb.mProjection);
+	mDirLight.GetTransformMatrix(&cb.mView);
+	cb.mWorld = XMMatrixIdentity();
 
-        mImmediateContext->RSSetState( mRSOrdinary );
+	// 1st stage - reprojection to texture
+	{
+		//plane
+		plane.position = XMFLOAT3(0, -0.5, 0);
+		plane.scale = XMFLOAT3(100, 1, 100);
+		FUtil::RenderPrimitive(&plane, mImmediateContext, cb, mCBChangesEveryFrame);
 
-        cube.rotationEuler = XMFLOAT3( 0, totalTime * 0.0001f, 0 );
-        cube.position = XMFLOAT3(0, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+		//cubes
+		cube.position = XMFLOAT3(0, 0, 0);
+		FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
 
-        cube.position = XMFLOAT3(3, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+		cube.position = XMFLOAT3(3, 0, 0);
+		FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
 
-        cube.position = XMFLOAT3(-3, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+		cube.position = XMFLOAT3(-3, 0, 0);
+		FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
+	}
+
+	D3DPERF_EndEvent();
+
+
+	// 2nd stage - compute shaders: calculating importance maps (2 1D textures)
+
+
+	// 3rd stage - render to shadows
+
+
+	// 4th stage - rendering with shadows
+
+	D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Backbuffer render");
+
+	mImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
+	mImmediateContext->ClearRenderTargetView(mRenderTargetView, ClearColor);
+	mImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	{
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Deferred");
+
+		mImmediateContext->OMSetDepthStencilState(mDSFullscreenPass, sref);
+
+		// fullscreen quad
+		mImmediateContext->PSSetShader(mPixelShaderQuad, NULL, 0);
+		mImmediateContext->VSSetShader(mVertexShaderQuad, NULL, 0);
+
+		ID3D11ShaderResourceView* srviews[1] = { mRTSecondRV };
+		mImmediateContext->PSSetShaderResources(0, 1, srviews);
+
+		RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0, 0), XMFLOAT2(1, 1));
 
         D3DPERF_EndEvent();
     }
 
 
     // render cameras frustums
-    if(!bViewCameraMain)
+    /*if(!bViewCameraMain)
     {
         XMVECTOR det;
         XMMATRIX invViewProj = mainCamera.getViewMatrix() * mainCamera.getProjMatrix();
@@ -333,31 +292,10 @@ HRESULT TestProject::RenderScene()
 
         cb.vMeshColor = XMFLOAT4(0, 1, 0 ,1);
         RenderCamera(mImmediateContext, mDevice, &surface.projectorWorldViewInverted);
-    }
-
-    // render debug points
-    if(false)
-    {
-        cb.vMeshColor = XMFLOAT4(1, 1, 1, 1);
-
-        XMVECTOR* vectors = NULL;
-        vectors = (XMVECTOR*)_mm_malloc(surface.numOfPositions*sizeof(XMVECTOR), 16);
-        
-        for(int i = 0; i < surface.numOfPositions; i++)
-            vectors[i] = XMVectorSet(surface.positions[i].x, surface.positions[i].y, surface.positions[i].z, 1);
-
-        RenderPoints(mImmediateContext, mDevice, vectors, surface.numOfPositions);
-        
-        _mm_free(vectors);
-        vectors = NULL;
-    }
+    }*/
 
     // projected grid (along with water shader)
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Water grid");
-    CBForCS cbSurface;
-    bool bGrid = surface.fillConstantBuffer(cbSurface, totalTime);
-    if(bGrid)
-    {
+	/*{
         //put additional info into constant buffer
         cbSurface.eyePosition = FUtil::FromVector4(mainCamera.getEye());
 
@@ -429,8 +367,7 @@ HRESULT TestProject::RenderScene()
 
         mImmediateContext->RSSetState(mRSOrdinary);
     }
-    D3DPERF_EndEvent();
-
+    */
 
     //quads   
     {
@@ -441,43 +378,20 @@ HRESULT TestProject::RenderScene()
         mImmediateContext->PSSetShader(mPixelShaderQuad, NULL, 0);
         mImmediateContext->VSSetShader(mVertexShaderQuad, NULL, 0);
 
-        ID3D11ShaderResourceView* srviews[1] = { surface.mOceanSimulator->getD3D11DisplacementMap() };
+        ID3D11ShaderResourceView* srviews[1] = { mRTSecondRV };
         mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
         RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.01, 0.01), XMFLOAT2(0.2,0.2));
 
-        srviews[0] = surface.mOceanSimulator->getD3D11GradientMap();
-        mImmediateContext->PSSetShaderResources(0, 1, srviews);
+		// depth map
+		srviews[0] = mShadowMapSRV;
+		mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
-        RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.22, 0.01), XMFLOAT2(0.2, 0.2));
-
-        srviews[0] = NULL;
-        mImmediateContext->PSSetShaderResources(0, 1, srviews);
+		RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.21, 0.01), XMFLOAT2(0.2, 0.2));
 
         D3DPERF_EndEvent();
     }
     
-
-    // SSR plane
-    if(true)
-    {
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 255, 0), L"SSR");
-
-        mImmediateContext->IASetInputLayout( mLayoutPT );
-
-        // enable reflection shaders
-	    mImmediateContext->VSSetShader( mVertexShaderReflection, NULL, 0 );
-	    mImmediateContext->PSSetShader( mPixelShaderReflection, NULL, 0 );
-	    mImmediateContext->PSSetShaderResources( 1, 1, &mRTSecondRV );
-	    mImmediateContext->PSSetShaderResources( 2, 1, &mDSSecondRV );
-	
-        // render plane
-        plane.position = XMFLOAT3(0, -0.3, 0);
-        plane.scale = XMFLOAT3(10, 1, 10);
-        //FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
-
-        D3DPERF_EndEvent();
-    }
 
 
 
@@ -692,8 +606,6 @@ HRESULT TestProject::InitScene()
 	cube.Init(mDevice);
 	plane.Init(mDevice);
 
-    surface.Init(mDevice, &oceanDesc);
-    surface.setCamera(&mainCamera);
 
     // Define the input layout
     mLayoutPT = VertexFormatMgr::getPTLayout(mDevice);
@@ -708,16 +620,11 @@ HRESULT TestProject::InitScene()
     
     FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShader);
     FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS_QUAD", "vs_4_0", &pVSBlob, &mVertexShaderQuad);
-    FUtil::InitVertexShader( mDevice, "TestProjectShader.fx", "VS_Reflection", "vs_4_0", &pVSBlob, &mVertexShaderReflection );
-    FUtil::InitVertexShader( mDevice, "TestProjectShader.fx", "VS_WAT", "vs_4_0", &pVSBlob, &mVertexShaderWater );
-
 
     ID3DBlob* pPSBlob = NULL;
 
     FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShader);
     FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS_QUAD", "ps_4_0", &pPSBlob, &mPixelShaderQuad);
-    FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS_Reflection", "ps_4_0", &pPSBlob, &mPixelShaderReflection);
-    FUtil::InitPixelShader( mDevice, "TestProjectShader.fx", "PS_WAT", "ps_4_0", &pPSBlob, &mPixelShaderWater);
 
 
 	//----------------------------------------------------------------------------
@@ -764,10 +671,7 @@ HRESULT TestProject::InitScene()
     mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 1.0, 100.0);
     mainCamera.setOrbitParams( 15, XMFLOAT3(0,0,0) );
 
-    observeCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.01, 1000.0);
-    observeCamera.setOrbitParams( 25, XMFLOAT3(0,0,0) );
-
-
+   
     // add rasterizing states
     D3D11_RASTERIZER_DESC desc;
     ZeroMemory(&desc, sizeof(D3D11_RASTERIZER_DESC));
@@ -795,6 +699,26 @@ HRESULT TestProject::InitScene()
     }
 
 
+	// add Depth-stencil states
+	D3D11_DEPTH_STENCIL_DESC dsDesc;
+	ZeroMemory(&dsDesc, sizeof(D3D11_DEPTH_STENCIL_DESC));
+	dsDesc.DepthEnable = true;
+	dsDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+	dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+
+	hr = mDevice->CreateDepthStencilState(&dsDesc, &mDSOrdinary);
+	if (FAILED(hr))
+	{
+		MessageBox(0, "Error: cannot create rasterizer state", "Error.", 0);
+	}
+
+	dsDesc.DepthEnable = false;
+	hr = mDevice->CreateDepthStencilState(&dsDesc, &mDSFullscreenPass);
+	if (FAILED(hr))
+	{
+		MessageBox(0, "Error: cannot create rasterizer state", "Error.", 0);
+	}
+
 
     //---------------------------------------
     // compute shader initialization
@@ -811,7 +735,7 @@ HRESULT TestProject::InitScene()
 
 
     //create constant buffer
-    ZeroMemory(&bd, sizeof(bd));
+	/*ZeroMemory(&bd, sizeof(bd));
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     bd.CPUAccessFlags = 0;
@@ -856,7 +780,7 @@ HRESULT TestProject::InitScene()
     DescUAV.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
     DescUAV.Buffer.FirstElement = 0;
     DescUAV.Buffer.NumElements = bd.ByteWidth / bd.StructureByteStride;
-    V_RETURN(mDevice->CreateUnorderedAccessView(mGridBuffer, &DescUAV, &mGridBufferUAV));
+    V_RETURN(mDevice->CreateUnorderedAccessView(mGridBuffer, &DescUAV, &mGridBufferUAV));*/
 
 
 
@@ -929,6 +853,34 @@ HRESULT TestProject::PrepareRT()
 	shaderResourceViewDesc.Format = DXGI_FORMAT_R32_FLOAT;
 	hr = mDevice->CreateShaderResourceView( mDSSecondTex, &shaderResourceViewDesc, &mDSSecondRV);
 	V_RETURN(hr);
+
+
+
+	//-------------------------------------------------
+	// create depth-stencil for shadow map
+
+	D3D11_TEXTURE2D_DESC smDesc;
+	ZeroMemory(&smDesc, sizeof(D3D11_TEXTURE2D_DESC));
+	smDesc.Height = 1024;
+	smDesc.Width = 1024;
+	smDesc.MipLevels = 1;
+	smDesc.ArraySize = 1;
+	smDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	smDesc.SampleDesc.Count = 1;
+	smDesc.SampleDesc.Quality = 0;
+	smDesc.Usage = D3D11_USAGE_DEFAULT;
+	smDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	smDesc.CPUAccessFlags = 0;
+	smDesc.MiscFlags = 0;
+	hr = mDevice->CreateTexture2D(&smDesc, NULL, &mShadowMapTexture);
+	V_RETURN(hr);
+
+	//reuse
+	hr = mDevice->CreateDepthStencilView(mShadowMapTexture, &descDSV, &mShadowMapDSV);
+	V_RETURN(hr);
+
+	hr = mDevice->CreateShaderResourceView(mShadowMapTexture, &shaderResourceViewDesc, &mShadowMapSRV);
+	V_RETURN(hr);
 }
 
 
@@ -945,9 +897,6 @@ HRESULT TestProject::ReleaseScene()
     SAFE_RELEASE(mVertexShaderQuad);
     SAFE_RELEASE(mPixelShaderQuad);
 
-    SAFE_RELEASE(mVertexShaderReflection);
-    SAFE_RELEASE(mPixelShaderReflection);
-
 	SAFE_RELEASE(mCBChangesEveryFrame);
 	SAFE_RELEASE(mTextureRV);
 	SAFE_RELEASE(mSamplerLinear);
@@ -955,14 +904,18 @@ HRESULT TestProject::ReleaseScene()
     SAFE_RELEASE(mRSCullNone);
     SAFE_RELEASE(mRSOrdinary);
 
+	SAFE_RELEASE(mDSOrdinary);
+	SAFE_RELEASE(mDSFullscreenPass);
+
+
+	SAFE_RELEASE(mShadowMapDSV);
+	SAFE_RELEASE(mShadowMapSRV);
+	SAFE_RELEASE(mShadowMapTexture);
+
 
     // compute shaders and resources
-    surface.Release();
 
     SAFE_RELEASE(mCBforCS);
-
-    SAFE_RELEASE(mVertexShaderWater);
-    SAFE_RELEASE(mPixelShaderWater);
 
 
 	return S_OK;

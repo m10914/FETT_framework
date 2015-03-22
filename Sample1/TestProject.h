@@ -27,7 +27,10 @@
 #include "camera.h"
 #include "FPCube.h"
 #include "FPPlane.h"
-#include "Surface.h"
+#include "d3d9.h" //for d3dperf stuff only!
+
+#include "FLightSource.h"
+
 
 
 //--------------------------------------------------------------------------------------
@@ -38,22 +41,7 @@
 
 struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet
 {
-    XMFLOAT4 mScreenParams;
-    XMFLOAT4 mPerspectiveValues;
-
-	XMFLOAT4 vMeshColor;	
-	XMFLOAT4 SSRParams;
-
-    XMFLOAT4 eyeVector;
-    XMFLOAT4 sunDirection;
-    XMFLOAT4 waterColor;
-    XMFLOAT4 skyColor;
-
-    XMFLOAT4 PerlinSize;
-    XMFLOAT4 PerlinAmplitude;
-    XMFLOAT4 PerlinOctave;
-    XMFLOAT4 PerlinGradient;
-    XMFLOAT4 PerlinMovement;
+	XMFLOAT4 vMeshColor;
 };
 
 
@@ -64,49 +52,53 @@ class __declspec(align(16)) TestProject : public DXApp
 private:
 
     // shaders
-	ID3D11VertexShader*                 mVertexShader;
-	ID3D11PixelShader*                  mPixelShader;
+	ID3D11VertexShader*                 mVertexShader = NULL;
+	ID3D11PixelShader*                  mPixelShader = NULL;
 
-    ID3D11VertexShader*                 mVertexShaderQuad;
-    ID3D11PixelShader*                  mPixelShaderQuad;
-
-	ID3D11VertexShader*                 mVertexShaderReflection;
-	ID3D11PixelShader*                  mPixelShaderReflection;
-
-    ID3D11VertexShader*                 mVertexShaderWater;
-    ID3D11PixelShader*                  mPixelShaderWater;
+	ID3D11VertexShader*                 mVertexShaderQuad = NULL;
+	ID3D11PixelShader*                  mPixelShaderQuad = NULL;
 
     // input layouts pointers
-    ID3D11InputLayout*                  mLayoutPT;
-    ID3D11InputLayout*                  mLayoutPNT;
+	ID3D11InputLayout*                  mLayoutPT = NULL;
+	ID3D11InputLayout*                  mLayoutPNT = NULL;
 
     // shader buffers
-	ID3D11Buffer*                       mCBChangesEveryFrame;
-    ID3D11Buffer*                       mCBforCS;
+	ID3D11Buffer*                       mCBChangesEveryFrame = NULL;
+	ID3D11Buffer*                       mCBforCS = NULL;
 	
-	ID3D11ShaderResourceView*           mTextureRV;
-	ID3D11SamplerState*                 mSamplerLinear;
-	ID3D11SamplerState*					mBackbufferSampler;
-	ID3D11SamplerState*					mDepthSampler;
+	ID3D11ShaderResourceView*           mTextureRV = NULL;
+	ID3D11SamplerState*                 mSamplerLinear = NULL;
+	ID3D11SamplerState*					mBackbufferSampler = NULL;
+	ID3D11SamplerState*					mDepthSampler = NULL;
 
     // compute
-    ID3D11ComputeShader*                mCS;
-    ID3D11Buffer*                       mGridBuffer;
-    ID3D11ShaderResourceView*           mGridBufferSRV;
-    ID3D11UnorderedAccessView*          mGridBufferUAV;
+	ID3D11ComputeShader*                mCS = NULL;
+	ID3D11Buffer*                       mGridBuffer = NULL;
+	ID3D11ShaderResourceView*           mGridBufferSRV = NULL;
+	ID3D11UnorderedAccessView*          mGridBufferUAV = NULL;
 
 
 	// alternative render target
-	ID3D11Texture2D*					mRTSecondTex;
-	ID3D11ShaderResourceView*			mRTSecondRV;
-	ID3D11RenderTargetView*				mRTSecondRTV;
-	ID3D11Texture2D*					mDSSecondTex;
-	ID3D11ShaderResourceView*			mDSSecondRV;
-	ID3D11DepthStencilView*				mDSSecondDSV;
+	ID3D11Texture2D*					mRTSecondTex = NULL;
+	ID3D11ShaderResourceView*			mRTSecondRV = NULL;
+	ID3D11RenderTargetView*				mRTSecondRTV = NULL;
+	ID3D11Texture2D*					mDSSecondTex = NULL;
+	ID3D11ShaderResourceView*			mDSSecondRV = NULL;
+	ID3D11DepthStencilView*				mDSSecondDSV = NULL;
 
-    ID3D11RasterizerState*              mRSOrdinary;
-    ID3D11RasterizerState*              mRSCullNone;
-    ID3D11RasterizerState*              mRSWireframe;
+
+	// RT for shadow map
+	ID3D11Texture2D*					mShadowMapTexture = NULL;
+	ID3D11ShaderResourceView*			mShadowMapSRV = NULL;
+	ID3D11DepthStencilView*				mShadowMapDSV = NULL;
+
+
+	ID3D11RasterizerState*              mRSOrdinary = NULL;
+	ID3D11RasterizerState*              mRSCullNone = NULL;
+    ID3D11RasterizerState*              mRSWireframe = NULL;
+
+	ID3D11DepthStencilState*			mDSOrdinary = NULL;
+	ID3D11DepthStencilState*			mDSFullscreenPass = NULL;
 
 	//----------------------------------
 	// objects'n'stuff
@@ -114,17 +106,24 @@ private:
     XMFLOAT4 mVMeshColor;
 
 	DXCamera mainCamera;
-    DXCamera observeCamera;
-    bool bViewCameraMain;
-    bool bControlCameraMain;
+    
+	enum ControlState
+	{
+		CS_Default = 0,
+		CS_FPSCamera,
+		CS_MoveLight,
+
+		CS_NumStates
+	};
+	ControlState mCurrentControlState = CS_Default;
 
 	FPCube	cube;
 	FPPlane	plane;
-    FSurface surface;
+
+	FDirectionalLight mDirLight;
+
 
     CBChangesEveryFrame cb;
-    OceanDescription oceanDesc;
-
 
 public:
 	TestProject();

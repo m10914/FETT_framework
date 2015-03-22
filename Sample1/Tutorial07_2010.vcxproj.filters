@@ -24,8 +24,8 @@
     <Filter Include="FW\VertexFormat">
       <UniqueIdentifier>{bba46abe-c3e6-4668-bbb5-33e345ba64d7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="TestProject\FFT">
-      <UniqueIdentifier>{c76e7d8b-d688-431c-a330-058d6e1f57d8}</UniqueIdentifier>
+    <Filter Include="FW\lighting">
+      <UniqueIdentifier>{c6e2f8ed-69be-4f86-86d5-e1dc865c9a7e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -51,17 +51,14 @@
     <ClCompile Include="FUtil.cpp">
       <Filter>FW</Filter>
     </ClCompile>
-    <ClCompile Include="Surface.cpp">
-      <Filter>TestProject</Filter>
-    </ClCompile>
     <ClCompile Include="VertexFormats.cpp">
       <Filter>FW\VertexFormat</Filter>
     </ClCompile>
-    <ClCompile Include="FFT\fft_512x512_c2c.cpp">
-      <Filter>TestProject\FFT</Filter>
+    <ClCompile Include="FLightSource.cpp">
+      <Filter>FW\lighting</Filter>
     </ClCompile>
-    <ClCompile Include="FFT\ocean_simulator.cpp">
-      <Filter>TestProject\FFT</Filter>
+    <ClCompile Include="MathHelper.cpp">
+      <Filter>FW</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -92,34 +89,22 @@
     <ClInclude Include="FUtil.h">
       <Filter>FW</Filter>
     </ClInclude>
-    <ClInclude Include="Surface.h">
-      <Filter>TestProject</Filter>
-    </ClInclude>
     <ClInclude Include="VertexFormats.h">
       <Filter>FW\VertexFormat</Filter>
     </ClInclude>
-    <ClInclude Include="FFT\fft_512x512.h">
-      <Filter>TestProject\FFT</Filter>
+    <ClInclude Include="FLightSource.h">
+      <Filter>FW\lighting</Filter>
     </ClInclude>
-    <ClInclude Include="FFT\ocean_simulator.h">
-      <Filter>TestProject\FFT</Filter>
+    <ClInclude Include="MathHelper.h">
+      <Filter>FW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="TestProjectShader.fx">
-      <Filter>TestProject</Filter>
-    </None>
     <None Include="ProjectedGrid.hlsl">
-      <Filter>TestProject</Filter>
+      <Filter>Shaders</Filter>
     </None>
-    <None Include="FFT\ocean_simulator_cs.hlsl">
-      <Filter>TestProject\FFT</Filter>
-    </None>
-    <None Include="FFT\ocean_simulator_vs_ps.hlsl">
-      <Filter>TestProject\FFT</Filter>
-    </None>
-    <None Include="FFT\fft_512x512_c2c.hlsl">
-      <Filter>TestProject\FFT</Filter>
+    <None Include="TestProjectShader.fx">
+      <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

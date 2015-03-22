@@ -390,15 +390,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
-    <ClCompile Include="FFT\fft_512x512_c2c.cpp" />
-    <ClCompile Include="FFT\ocean_simulator.cpp" />
+    <ClCompile Include="FLightSource.cpp" />
     <ClCompile Include="FPCube.cpp" />
     <ClCompile Include="dxapp.cpp" />
     <ClCompile Include="FPPlane.cpp" />
     <ClCompile Include="FPrimitive.cpp" />
     <ClCompile Include="FUtil.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Surface.cpp" />
+    <ClCompile Include="MathHelper.cpp" />
     <ClCompile Include="TestProject.cpp" />
     <ClCompile Include="VertexFormats.cpp" />
   </ItemGroup>
@@ -407,14 +406,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
-    <ClInclude Include="FFT\fft_512x512.h" />
-    <ClInclude Include="FFT\ocean_simulator.h" />
+    <ClInclude Include="FLightSource.h" />
     <ClInclude Include="FPCube.h" />
     <ClInclude Include="dxapp.h" />
     <ClInclude Include="FPPlane.h" />
     <ClInclude Include="FPrimitive.h" />
     <ClInclude Include="FUtil.h" />
-    <ClInclude Include="Surface.h" />
+    <ClInclude Include="MathHelper.h" />
     <ClInclude Include="TestProject.h" />
     <CLInclude Include="resource.h" />
     <ClInclude Include="VertexFormats.h" />
@@ -422,17 +420,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="ProjectedGrid.hlsl">
-      <FileType>Document</FileType>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="FFT\fft_512x512_c2c.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="FFT\ocean_simulator_cs.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="FFT\ocean_simulator_vs_ps.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>
