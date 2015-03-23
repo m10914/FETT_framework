@@ -45,7 +45,7 @@ struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet
 };
 
 
-struct __declspec(align(16)) CBforCS
+struct __declspec(align(16)) CBforCSReprojection
 {
 	XMMATRIX matMVPInv;
 	XMMATRIX matMVPLight;
@@ -84,7 +84,8 @@ private:
 	ID3D11DepthStencilState*			mDSFullscreenPass = NULL;
 
     // compute
-	ID3D11ComputeShader*                mCS = NULL;
+	ID3D11ComputeShader*                mComputeShaderReprojection = NULL;
+	ID3D11ComputeShader*				mComputeShaderImportance = NULL;
 
 
 	// alternative render target
@@ -106,10 +107,23 @@ private:
 	ID3D11ShaderResourceView*			mReprojectionSRV = NULL;
 	ID3D11UnorderedAccessView*			mReprojectionUAV = NULL;
 
+	ID3D11Buffer*						mImportanceBuffer = NULL;
+	ID3D11ShaderResourceView*			mImportanceBufferSRV = NULL;
+	ID3D11UnorderedAccessView*			mImportanceBufferUAV = NULL;
+
+
 	// stuff for visualizing - DEBUG purpose only
+	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	
 	ID3D11Buffer*						mReprojectionTransferBuffer = NULL;
 	ID3D11Texture2D*					mReprojectionVisualTexture = NULL;
 	ID3D11ShaderResourceView*			mReprojectionVisualSRV = NULL;
+
+	ID3D11VertexShader*                 mVertexShaderBufferVis = NULL;
+	ID3D11PixelShader*                  mPixelShaderBufferVis = NULL;
+
+	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 
 	//----------------------------------
 	// objects'n'stuff
@@ -135,7 +149,7 @@ private:
 
 	// constant buffers
     CBChangesEveryFrame cb;
-	CBforCS	mMemBufferForCS;
+	CBforCSReprojection	mMemBufferForCSReprojection;
 
 public:
 	TestProject();

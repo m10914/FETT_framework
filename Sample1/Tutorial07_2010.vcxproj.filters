@@ -109,6 +109,12 @@
     <None Include="Reprojection.hlsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="Importance.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="BufferVisualizer.fx">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="VertexFormatsInitializer.fx">

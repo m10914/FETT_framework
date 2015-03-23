@@ -227,35 +227,35 @@ HRESULT TestProject::RenderScene()
 	//--------------------------------
 	// do GPU computing 
 	{
-		//build buffer
+		//build buffer and other preparations
 		{
-			mDirLight.GetMVPMatrix(&mMemBufferForCS.matMVPLight);
+			mDirLight.GetMVPMatrix(&mMemBufferForCSReprojection.matMVPLight);
 
 			XMVECTOR det;
 			XMMATRIX vmat = XMMatrixInverse(&det,
 					XMMatrixTranspose(mainCamera.getProjMatrix()) *
 					XMMatrixTranspose(mainCamera.getViewMatrix())	);
 			
-			mMemBufferForCS.matMVPInv = vmat;
+			mMemBufferForCSReprojection.matMVPInv = vmat;
 
-			mImmediateContext->UpdateSubresource(mCBforCS, 0, NULL, &mMemBufferForCS, 0, 0);
+			mImmediateContext->UpdateSubresource(mCBforCS, 0, NULL, &mMemBufferForCSReprojection, 0, 0);
+
+			// clear reproj buffer
+			static float val[1048576];
+			memset(&val, 0, sizeof(float)* 1048576);
+			mImmediateContext->UpdateSubresource(mReprojectionBuffer, 0, NULL, &val, 0, 0);
 		}
 
 		D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 255, 0), L"reprojection");
 
 		ID3D11Buffer* csbuffers[1] = { mCBforCS };
-		mImmediateContext->CSSetShader(mCS, NULL, 0);
-		mImmediateContext->CSSetConstantBuffers(0, 1, csbuffers);
-
-		// bind resources
-
-		static float val[1048576];
-		memset(&val, 0, sizeof(float)* 1048576);
-		mImmediateContext->UpdateSubresource(mReprojectionBuffer, 0, NULL, &val, 0, 0);
 		ID3D11UnorderedAccessView* aUAViews[1] = { mReprojectionUAV };
-		mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
-
 		ID3D11ShaderResourceView* srviews[1] = { mDSSecondSRV };
+
+		mImmediateContext->CSSetShader(mComputeShaderReprojection, NULL, 0);
+
+		mImmediateContext->CSSetConstantBuffers(0, 1, csbuffers);
+		mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));	
 		mImmediateContext->CSSetShaderResources(0, 1, srviews);
 
 		// launch!
@@ -270,7 +270,8 @@ HRESULT TestProject::RenderScene()
 		csbuffers[0] = NULL;
 		mImmediateContext->CSSetConstantBuffers(0, 1, csbuffers);
 
-		if (true)
+
+		if (true) //very very VERY slow, disable it for release
 		{
 			// visualize
 
@@ -288,6 +289,28 @@ HRESULT TestProject::RenderScene()
 			mImmediateContext->Unmap(mReprojectionTransferBuffer, 0);
 		}
 
+		D3DPERF_EndEvent();
+		
+		
+		D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 255, 0), L"importance calculation");
+
+		aUAViews[0] = mImportanceBufferUAV;
+		srviews[0] = mReprojectionSRV;
+
+		mImmediateContext->CSSetShader(mComputeShaderImportance, NULL, 0);
+		
+		mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
+		mImmediateContext->CSSetShaderResources(0, 1, srviews);
+		
+		// launch!
+		tG = ceil(1024 / 8.f);
+		mImmediateContext->Dispatch(tG, 1, 1);
+
+		// Unbind
+		aUAViews[0] = NULL;
+		mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
+		srviews[0] = NULL;
+		mImmediateContext->CSSetShaderResources(0, 1, srviews);
 
 		D3DPERF_EndEvent();
 	}
@@ -370,6 +393,17 @@ HRESULT TestProject::RenderScene()
 		mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
 		RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.21, 0.01), XMFLOAT2(0.2, 0.2));
+
+		// buffer visualize
+		//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+		mImmediateContext->PSSetShader(mPixelShaderBufferVis, NULL, 0);
+		mImmediateContext->VSSetShader(mVertexShaderBufferVis, NULL, 0);
+
+		srviews[0] = mImportanceBufferSRV;
+		mImmediateContext->PSSetShaderResources(0, 1, srviews);
+
+		RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.41, 0.01), XMFLOAT2(0.2, 0.2));
 
         D3DPERF_EndEvent();
     }
@@ -602,11 +636,13 @@ HRESULT TestProject::InitScene()
     
     FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShader);
     FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS_QUAD", "vs_4_0", &pVSBlob, &mVertexShaderQuad);
+	FUtil::InitVertexShader(mDevice, "BufferVisualizer.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShaderBufferVis);
 
     ID3DBlob* pPSBlob = NULL;
 
     FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShader);
-    FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS_QUAD", "ps_4_0", &pPSBlob, &mPixelShaderQuad);
+	FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS_QUAD", "ps_4_0", &pPSBlob, &mPixelShaderQuad);
+	FUtil::InitPixelShader(mDevice, "BufferVisualizer.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShaderBufferVis);
 
 
 	//----------------------------------------------------------------------------
@@ -712,133 +748,35 @@ HRESULT TestProject::InitScene()
         FUtil::Log("Error: cannot compile compute shader for reprojection");
         return hr;
     }
-    V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mCS));
-    
+    V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mComputeShaderReprojection));
+	SAFE_RELEASE(pCSBlob);
 
-
-    //create constant buffer
-	/*ZeroMemory(&bd, sizeof(bd));
-    bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    bd.CPUAccessFlags = 0;
-    bd.ByteWidth = sizeof(CBForCS);
-    hr = mDevice->CreateBuffer(&bd, NULL, &mCBforCS);
-    if (FAILED(hr))
-        return hr;
-
-
-    // create buffer
-    ZeroMemory(&bd, sizeof(bd));
-    bd.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-    bd.ByteWidth = GRID_DIMENSION * GRID_DIMENSION * sizeof(float)*4;
-    bd.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    bd.StructureByteStride = sizeof(float)*4;
-    bd.Usage = D3D11_USAGE_DEFAULT;
-
-    float* arr = new float[4*GRID_DIMENSION*GRID_DIMENSION];
-    memset(arr, 0, sizeof(arr));
-    D3D11_SUBRESOURCE_DATA InitData;
-    InitData.pSysMem = arr;
-    
-    if (FAILED(mDevice->CreateBuffer(&bd, &InitData, &mGridBuffer)))
-    {
-        FUtil::Log("Error: cannot create buffer for projected grid");
-        return hr;
-    }
-    delete [] arr;
-
-    // create views
-    D3D11_SHADER_RESOURCE_VIEW_DESC DescRV;
-    ZeroMemory(&DescRV, sizeof(DescRV));
-    DescRV.Format = DXGI_FORMAT_UNKNOWN;
-    DescRV.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-    DescRV.Buffer.FirstElement = 0;
-    DescRV.Buffer.NumElements = bd.ByteWidth / bd.StructureByteStride;
-    mDevice->CreateShaderResourceView(mGridBuffer, &DescRV, &mGridBufferSRV);
-
-    D3D11_UNORDERED_ACCESS_VIEW_DESC DescUAV;
-    ZeroMemory(&DescUAV, sizeof(D3D11_UNORDERED_ACCESS_VIEW_DESC));
-    DescUAV.Format = DXGI_FORMAT_UNKNOWN;
-    DescUAV.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    DescUAV.Buffer.FirstElement = 0;
-    DescUAV.Buffer.NumElements = bd.ByteWidth / bd.StructureByteStride;
-    V_RETURN(mDevice->CreateUnorderedAccessView(mGridBuffer, &DescUAV, &mGridBufferUAV));*/
+	hr = FUtil::CompileShaderFromFile("Importance.hlsl", "CalcImportance", "cs_4_0", &pCSBlob);
+	if (FAILED(hr))
+	{
+		FUtil::Log("Error: cannot compile compute shader for importance");
+		return hr;
+	}
+	V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mComputeShaderImportance));
 
 
 
-	return S_OK;
-}
 
+	//--------------------------------------------------------------
+	// B U F F E R S
 
-HRESULT TestProject::PrepareRT()
-{
-	HRESULT hr;
-
-	// create G-Buffer albedo texture
-	D3D11_TEXTURE2D_DESC Desc;
-    ZeroMemory( &Desc, sizeof( D3D11_TEXTURE2D_DESC ) );
-    Desc.ArraySize = 1;
-    Desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-    Desc.Width = swapChainDesc.BufferDesc.Width;
-    Desc.Height = swapChainDesc.BufferDesc.Height;
-    Desc.MipLevels = 1;
-    Desc.SampleDesc.Count = 1;
-    V_RETURN( mDevice->CreateTexture2D( &Desc, NULL, &mRTSecondTex ) );
-
-	D3D11_RENDER_TARGET_VIEW_DESC DescRT;
-	DescRT.Format = Desc.Format;
-	DescRT.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-	DescRT.Texture2D.MipSlice = 0;
-	V_RETURN( mDevice->CreateRenderTargetView( mRTSecondTex, &DescRT, &mRTSecondRTV ) );
-
-	// Create the resource view
-	D3D11_SHADER_RESOURCE_VIEW_DESC DescRV;
-	DescRV.Format = Desc.Format;
-	DescRV.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	DescRV.Texture2D.MipLevels = 1;
-	DescRV.Texture2D.MostDetailedMip = 0;
-	V_RETURN( mDevice->CreateShaderResourceView( mRTSecondTex, &DescRV, &mRTSecondSRV ) );
-
-
-	// DEPTH_STENCIL
-	D3D11_TEXTURE2D_DESC descDepth;
-	ZeroMemory( &descDepth, sizeof(descDepth) );
-	descDepth.Width = swapChainDesc.BufferDesc.Width;
-	descDepth.Height = swapChainDesc.BufferDesc.Height;
-	descDepth.MipLevels = 1;
-	descDepth.ArraySize = 1;
-	descDepth.Format = DXGI_FORMAT_R32_TYPELESS;
-	descDepth.SampleDesc.Count = 1;
-	descDepth.SampleDesc.Quality = 0;
-	descDepth.Usage = D3D11_USAGE_DEFAULT;
-	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-	descDepth.CPUAccessFlags = 0;
-	descDepth.MiscFlags = 0;
-	hr = mDevice->CreateTexture2D( &descDepth, NULL, &mDSSecondTex );
-	V_RETURN(hr);
-
-	// Create the depth stencil view
 	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
-	ZeroMemory( &descDSV, sizeof(descDSV) );
+	ZeroMemory(&descDSV, sizeof(descDSV));
 	descDSV.Format = DXGI_FORMAT_D32_FLOAT;
 	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	descDSV.Texture2D.MipSlice = 0;
-	hr = mDevice->CreateDepthStencilView( mDSSecondTex, &descDSV, &mDSSecondDSV );
-	V_RETURN(hr);
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
 	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
 	shaderResourceViewDesc.Texture2D.MipLevels = 1;
 	shaderResourceViewDesc.Format = DXGI_FORMAT_R32_FLOAT;
-	hr = mDevice->CreateShaderResourceView( mDSSecondTex, &shaderResourceViewDesc, &mDSSecondSRV);
-	V_RETURN(hr);
 
-
-
-	//-------------------------------------------------
 	// create depth-stencil for shadow map
 	{
 		D3D11_TEXTURE2D_DESC smDesc;
@@ -917,7 +855,7 @@ HRESULT TestProject::PrepareRT()
 		bd.Usage = D3D11_USAGE_DEFAULT;
 		bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		bd.CPUAccessFlags = 0;
-		bd.ByteWidth = sizeof(CBforCS);
+		bd.ByteWidth = sizeof(CBforCSReprojection);
 		hr = mDevice->CreateBuffer(&bd, NULL, &mCBforCS);
 		if (FAILED(hr))
 			return hr;
@@ -931,7 +869,7 @@ HRESULT TestProject::PrepareRT()
 		sbDesc.StructureByteStride = sizeof(float);
 		sbDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
-		float* arr = new float[1024*1024];
+		float* arr = new float[1024 * 1024];
 		memset(arr, 0, sizeof(arr));
 		D3D11_SUBRESOURCE_DATA InitData;
 		InitData.pSysMem = arr;
@@ -959,7 +897,104 @@ HRESULT TestProject::PrepareRT()
 		sbUAVDesc.Buffer.NumElements = 1024 * 1024;
 		hr = mDevice->CreateUnorderedAccessView(mReprojectionBuffer, &sbUAVDesc, &mReprojectionUAV);
 		V_RETURN(hr);
+
+
+		//importance maps
+		{
+			ZeroMemory(&sbDesc, sizeof(D3D11_BUFFER_DESC));
+			sbDesc.Usage = D3D11_USAGE_DEFAULT;
+			sbDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+			sbDesc.ByteWidth = 1024 * sizeof(float) * 2;
+			sbDesc.StructureByteStride = sizeof(float) * 2;
+			sbDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+
+			arr = new float[1024*2];
+			ZeroMemory(arr, sizeof(arr));
+			InitData.pSysMem = arr;
+			hr = mDevice->CreateBuffer(&sbDesc, &InitData, &mImportanceBuffer);
+			delete[] arr;
+			V_RETURN(hr);
+
+
+			sbSRVDesc.Buffer.NumElements = 1024;
+			hr = mDevice->CreateShaderResourceView(mImportanceBuffer, &sbSRVDesc, &mImportanceBufferSRV);
+			V_RETURN(hr);
+
+			sbUAVDesc.Buffer.NumElements = 1024;
+			hr = mDevice->CreateUnorderedAccessView(mImportanceBuffer, &sbUAVDesc, &mImportanceBufferUAV);
+		}
 	}
+
+
+	return S_OK;
+}
+
+
+HRESULT TestProject::PrepareRT()
+{
+	HRESULT hr;
+
+	// create G-Buffer albedo texture
+	D3D11_TEXTURE2D_DESC Desc;
+    ZeroMemory( &Desc, sizeof( D3D11_TEXTURE2D_DESC ) );
+    Desc.ArraySize = 1;
+    Desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    Desc.Usage = D3D11_USAGE_DEFAULT;
+    Desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    Desc.Width = swapChainDesc.BufferDesc.Width;
+    Desc.Height = swapChainDesc.BufferDesc.Height;
+    Desc.MipLevels = 1;
+    Desc.SampleDesc.Count = 1;
+    V_RETURN( mDevice->CreateTexture2D( &Desc, NULL, &mRTSecondTex ) );
+
+	D3D11_RENDER_TARGET_VIEW_DESC DescRT;
+	DescRT.Format = Desc.Format;
+	DescRT.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	DescRT.Texture2D.MipSlice = 0;
+	V_RETURN( mDevice->CreateRenderTargetView( mRTSecondTex, &DescRT, &mRTSecondRTV ) );
+
+	// Create the resource view
+	D3D11_SHADER_RESOURCE_VIEW_DESC DescRV;
+	DescRV.Format = Desc.Format;
+	DescRV.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	DescRV.Texture2D.MipLevels = 1;
+	DescRV.Texture2D.MostDetailedMip = 0;
+	V_RETURN( mDevice->CreateShaderResourceView( mRTSecondTex, &DescRV, &mRTSecondSRV ) );
+
+
+	// DEPTH_STENCIL
+	D3D11_TEXTURE2D_DESC descDepth;
+	ZeroMemory( &descDepth, sizeof(descDepth) );
+	descDepth.Width = swapChainDesc.BufferDesc.Width;
+	descDepth.Height = swapChainDesc.BufferDesc.Height;
+	descDepth.MipLevels = 1;
+	descDepth.ArraySize = 1;
+	descDepth.Format = DXGI_FORMAT_R32_TYPELESS;
+	descDepth.SampleDesc.Count = 1;
+	descDepth.SampleDesc.Quality = 0;
+	descDepth.Usage = D3D11_USAGE_DEFAULT;
+	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	descDepth.CPUAccessFlags = 0;
+	descDepth.MiscFlags = 0;
+	hr = mDevice->CreateTexture2D( &descDepth, NULL, &mDSSecondTex );
+	V_RETURN(hr);
+
+	// Create the depth stencil view
+	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
+	ZeroMemory( &descDSV, sizeof(descDSV) );
+	descDSV.Format = DXGI_FORMAT_D32_FLOAT;
+	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	descDSV.Texture2D.MipSlice = 0;
+	hr = mDevice->CreateDepthStencilView( mDSSecondTex, &descDSV, &mDSSecondDSV );
+	V_RETURN(hr);
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
+	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
+	shaderResourceViewDesc.Texture2D.MipLevels = 1;
+	shaderResourceViewDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	hr = mDevice->CreateShaderResourceView( mDSSecondTex, &shaderResourceViewDesc, &mDSSecondSRV);
+	V_RETURN(hr);
 
 }
 
@@ -995,7 +1030,7 @@ HRESULT TestProject::ReleaseScene()
 
     // compute shaders and resources
 
-	SAFE_RELEASE(mCS);
+	SAFE_RELEASE(mComputeShaderReprojection);
     SAFE_RELEASE(mCBforCS);
 
 	SAFE_RELEASE(mReprojectionSRV);
