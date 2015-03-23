@@ -29,4 +29,5 @@ XMMATRIX FPrimitive::getTransform()
 void FPrimitive::writeTransform(CBMatrixSet& cbset)
 {
     cbset.mWorld = XMMatrixTranspose( getTransform() );
+	cbset.mvp = cbset.mProjection * cbset.mView * cbset.mWorld;
 }

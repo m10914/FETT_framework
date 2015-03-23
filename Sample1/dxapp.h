@@ -58,6 +58,7 @@ struct __declspec(align(16)) CBMatrixSet
     XMMATRIX mWorld;
     XMMATRIX mView;
     XMMATRIX mProjection;
+	XMMATRIX mvp;
 };
 
 #define KE_NONE 0

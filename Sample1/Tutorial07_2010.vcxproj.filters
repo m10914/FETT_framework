@@ -106,6 +106,9 @@
     <None Include="TestProjectShader.fx">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="Reprojection.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="VertexFormatsInitializer.fx">
