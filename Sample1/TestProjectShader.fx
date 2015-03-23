@@ -24,8 +24,9 @@ cbuffer cbChangesEveryFrame : register( b0 )
     matrix World : packoffset(c0);
     matrix View : packoffset(c4);
     matrix Projection : packoffset(c8);
+	matrix mvp : packoffset(c12);
 
-    float4 vMeshColor : packoffset(c12);
+    float4 vMeshColor : packoffset(c16);
 };
 
 
@@ -54,9 +55,8 @@ struct PS_INPUT
 PS_INPUT VS( VS_INPUT input )
 {
     PS_INPUT output = (PS_INPUT)0;
-    output.Pos = mul( input.Pos, World );
-    output.Pos = mul( output.Pos, View );
-    output.Pos = mul( output.Pos, Projection );
+	output.Pos = mul(input.Pos, mvp);
+
     
 	output.Tex = input.Tex;
     

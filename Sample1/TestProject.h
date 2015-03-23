@@ -45,6 +45,11 @@ struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet
 };
 
 
+struct __declspec(align(16)) CBforCS
+{
+	XMMATRIX matMVPInv;
+	XMMATRIX matMVPLight;
+};
 
 
 class __declspec(align(16)) TestProject : public DXApp
@@ -71,19 +76,23 @@ private:
 	ID3D11SamplerState*					mBackbufferSampler = NULL;
 	ID3D11SamplerState*					mDepthSampler = NULL;
 
+	ID3D11RasterizerState*              mRSOrdinary = NULL;
+	ID3D11RasterizerState*              mRSCullNone = NULL;
+	ID3D11RasterizerState*              mRSWireframe = NULL;
+
+	ID3D11DepthStencilState*			mDSOrdinary = NULL;
+	ID3D11DepthStencilState*			mDSFullscreenPass = NULL;
+
     // compute
 	ID3D11ComputeShader*                mCS = NULL;
-	ID3D11Buffer*                       mGridBuffer = NULL;
-	ID3D11ShaderResourceView*           mGridBufferSRV = NULL;
-	ID3D11UnorderedAccessView*          mGridBufferUAV = NULL;
 
 
 	// alternative render target
 	ID3D11Texture2D*					mRTSecondTex = NULL;
-	ID3D11ShaderResourceView*			mRTSecondRV = NULL;
+	ID3D11ShaderResourceView*			mRTSecondSRV = NULL;
 	ID3D11RenderTargetView*				mRTSecondRTV = NULL;
 	ID3D11Texture2D*					mDSSecondTex = NULL;
-	ID3D11ShaderResourceView*			mDSSecondRV = NULL;
+	ID3D11ShaderResourceView*			mDSSecondSRV = NULL;
 	ID3D11DepthStencilView*				mDSSecondDSV = NULL;
 
 
@@ -91,14 +100,16 @@ private:
 	ID3D11Texture2D*					mShadowMapTexture = NULL;
 	ID3D11ShaderResourceView*			mShadowMapSRV = NULL;
 	ID3D11DepthStencilView*				mShadowMapDSV = NULL;
+	
+	// a couple of textures for importance map
+	ID3D11Buffer*						mReprojectionBuffer = NULL;
+	ID3D11ShaderResourceView*			mReprojectionSRV = NULL;
+	ID3D11UnorderedAccessView*			mReprojectionUAV = NULL;
 
-
-	ID3D11RasterizerState*              mRSOrdinary = NULL;
-	ID3D11RasterizerState*              mRSCullNone = NULL;
-    ID3D11RasterizerState*              mRSWireframe = NULL;
-
-	ID3D11DepthStencilState*			mDSOrdinary = NULL;
-	ID3D11DepthStencilState*			mDSFullscreenPass = NULL;
+	// stuff for visualizing - DEBUG purpose only
+	ID3D11Buffer*						mReprojectionTransferBuffer = NULL;
+	ID3D11Texture2D*					mReprojectionVisualTexture = NULL;
+	ID3D11ShaderResourceView*			mReprojectionVisualSRV = NULL;
 
 	//----------------------------------
 	// objects'n'stuff
@@ -122,8 +133,9 @@ private:
 
 	FDirectionalLight mDirLight;
 
-
+	// constant buffers
     CBChangesEveryFrame cb;
+	CBforCS	mMemBufferForCS;
 
 public:
 	TestProject();

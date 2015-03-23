@@ -41,7 +41,7 @@ void FDirectionalLight::GetMVPMatrix(XMMATRIX* mOut)
 	XMMATRIX projMat;
 	GetProjectionMatrix(&projMat);
 
-	*mOut = transformMatrix * projMat;
+	*mOut = projMat * transformMatrix;
 }
 
 void FDirectionalLight::GetTransformMatrix(XMMATRIX* mOut)
