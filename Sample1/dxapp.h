@@ -92,6 +92,9 @@ protected:
 
     virtual HRESULT FrameMove() = 0; //pre-render function
 
+    void UpdateViewport(int width, int height);
+    void UpdateViewport(DXGI_SWAP_CHAIN_DESC& desc);
+
 protected:
 	HWND mHwnd;
 

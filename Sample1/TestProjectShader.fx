@@ -12,6 +12,7 @@
 
 
 Texture2D txDiffuse : register( t0 );
+StructuredBuffer<float2> warpMaps : register( t1 );
 
 
 SamplerState samLinear : register( s0 );
@@ -56,8 +57,7 @@ PS_INPUT VS( VS_INPUT input )
 {
     PS_INPUT output = (PS_INPUT)0;
 	output.Pos = mul(input.Pos, mvp);
-
-    
+  
 	output.Tex = input.Tex;
     
     return output;
@@ -68,6 +68,35 @@ float4 PS( PS_INPUT input) : SV_Target
 {
     return float4(txDiffuse.Sample( samLinear, input.Tex ).xyz, 1) * vMeshColor;
 }
+
+
+/*
+==============================================================
+RTW shader
+vertex only (use ordinary PS with this one)
+==============================================================
+*/
+
+#define WIDTH 1024
+
+PS_INPUT VS_RTW(VS_INPUT input)
+{
+    PS_INPUT output = (PS_INPUT)0;
+    output.Pos = mul(input.Pos, mvp);
+    output.Pos /= output.Pos.w;
+    output.Pos.w = 1;
+
+    // warping
+    int2 index = mad(output.Pos.xy, 0.5, 0.5) * WIDTH;
+    float2 warps = float2(warpMaps[index.x].y, warpMaps[index.y].x);
+    output.Pos.xy += warps;
+
+    output.Tex = input.Tex;
+
+    return output;
+}
+
+
 
 
 /*

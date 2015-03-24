@@ -107,7 +107,7 @@ HRESULT TestProject::FrameMove()
 
 	if (mCurrentControlState == CS_MoveLight)
 		mDirLight.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(mouseDX, mouseDY, mouseDZ));
-	else mDirLight.FrameMove(XMFLOAT3(0, 0, 0), XMFLOAT3(0, 0, 0));
+	else mDirLight.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(0, 0, 0));
 
 
 
@@ -115,10 +115,7 @@ HRESULT TestProject::FrameMove()
     //---------------
 
 	DXCamera* curCamera = &mainCamera; //select camera
-
     cb.mView = XMMatrixTranspose( curCamera->getViewMatrix() );
-
-
     XMMATRIX mProjection = curCamera->getProjMatrix();
     cb.mProjection = XMMatrixTranspose( mProjection );
 
@@ -165,9 +162,8 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->OMSetRenderTargets(1, &mRTSecondRTV, mDSSecondDSV);
 	float ClearColor[4] = { 0.525f, 0.525f, 0.525f, 1.0f }; // red, green, blue, alpha
 	mImmediateContext->ClearRenderTargetView(mRTSecondRTV, ClearColor);
-	mImmediateContext->ClearDepthStencilView(mDSSecondDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
-
-
+    mImmediateContext->ClearDepthStencilView(mDSSecondDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    UpdateViewport(swapChainDesc);
 
 	// initial preparation
 	mImmediateContext->IASetInputLayout(mLayoutPT);
@@ -178,9 +174,8 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->VSSetConstantBuffers(0, 1, &mCBChangesEveryFrame);
 	mImmediateContext->PSSetConstantBuffers(0, 1, &mCBChangesEveryFrame);
 
-	mImmediateContext->PSSetShaderResources(0, 1, &mTextureRV);
-	mImmediateContext->PSSetShaderResources(1, 1, &mTextureRV);
-	mImmediateContext->PSSetShaderResources(2, 1, &mTextureRV);
+    ID3D11ShaderResourceView* rv[3] = { mTextureRV, mTextureRV, mTextureRV };
+	mImmediateContext->PSSetShaderResources(0, 3, rv);
 
 
 	// render cubes
@@ -221,10 +216,12 @@ HRESULT TestProject::RenderScene()
 
 
 	// placeholder - just render from light's position
-	mImmediateContext->OMSetRenderTargets(0, NULL, mShadowMapDSV);
+	mImmediateContext->OMSetRenderTargets(1, &mSMTempVisRTV, mShadowMapDSV);
+    mImmediateContext->ClearRenderTargetView(mSMTempVisRTV, ClearColor);
 	mImmediateContext->ClearDepthStencilView(mShadowMapDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    UpdateViewport(1024, 1024);
 
-	//--------------------------------
+	//----------------------------------------------------------------
 	// do GPU computing 
 	{
 		//build buffer and other preparations
@@ -291,7 +288,8 @@ HRESULT TestProject::RenderScene()
 
 		D3DPERF_EndEvent();
 		
-		
+		//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 		D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 255, 0), L"importance calculation");
 
 		aUAViews[0] = mImportanceBufferUAV;
@@ -306,93 +304,147 @@ HRESULT TestProject::RenderScene()
 		tG = ceil(1024 / 8.f);
 		mImmediateContext->Dispatch(tG, 1, 1);
 
-		// Unbind
-		aUAViews[0] = NULL;
-		mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
-		srviews[0] = NULL;
-		mImmediateContext->CSSetShaderResources(0, 1, srviews);
-
 		D3DPERF_EndEvent();
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 255, 0), L"create warp maps");
+
+        aUAViews[0] = mWarpBufferUAV;
+        srviews[0] = mImportanceBufferSRV;
+
+        mImmediateContext->CSSetShader(mComputeShaderWarp, NULL, 0);
+
+        mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
+        mImmediateContext->CSSetShaderResources(0, 1, srviews);
+
+        // launch!
+        tG = ceil(1024 / 8.f);
+        mImmediateContext->Dispatch(tG, 1, 1);
+
+        D3DPERF_EndEvent();
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        // Unbind
+        aUAViews[0] = NULL;
+        mImmediateContext->CSSetUnorderedAccessViews(0, 1, aUAViews, (UINT*)(&aUAViews));
+        srviews[0] = NULL;
+        mImmediateContext->CSSetShaderResources(0, 1, srviews);
 	}
 
 
-	mDirLight.GetProjectionMatrix(&cb.mProjection);
-	mDirLight.GetTransformMatrix(&cb.mView);
-	cb.mWorld = XMMatrixIdentity();
+    //-------------------------------------------------------------
+    // now we render scene to shadowmap with RTW shader
+    {
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 255, 0), L"render to SM");
 
-	// 1st stage - reprojection to texture
-	{
-		//plane
-		plane.position = XMFLOAT3(0, -0.5, 0);
-		plane.scale = XMFLOAT3(100, 1, 100);
-		FUtil::RenderPrimitive(&plane, mImmediateContext, cb, mCBChangesEveryFrame);
+        mImmediateContext->VSSetShader(mVertexShaderRTW, NULL, 0);
 
-		//cubes
-		cube.position = XMFLOAT3(0, 0, 0);
-		FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
+        ID3D11ShaderResourceView* vsSRVs[2] = { NULL, mWarpBufferSRV };
+        mImmediateContext->VSSetShaderResources(0, 2, vsSRVs);
 
-		cube.position = XMFLOAT3(3, 0, 0);
-		FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
+        mImmediateContext->VSSetConstantBuffers(0, 1, &mCBChangesEveryFrame);
 
-		cube.position = XMFLOAT3(-3, 0, 0);
-		FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
-	}
+        mDirLight.GetProjectionMatrix(&cb.mProjection);
+        mDirLight.GetTransformMatrix(&cb.mView);
+        cb.mWorld = XMMatrixIdentity();
+
+        {
+            //cubes
+            cube.position = XMFLOAT3(0, 0, 0);
+            FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
+
+            cube.position = XMFLOAT3(3, 0, 0);
+            FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
+
+            cube.position = XMFLOAT3(-3, 0, 0);
+            FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
+        }
+
+        vsSRVs[1] = NULL;
+        mImmediateContext->VSSetShaderResources(0, 2, vsSRVs);
+
+        D3DPERF_EndEvent();
+    }
 
 	D3DPERF_EndEvent();
 
 
-	// 2nd stage - compute shaders: calculating importance maps (2 1D textures)
+    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
-	// 3rd stage - render to shadows
-
-
-	// 4th stage - rendering with shadows
-
-	D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Backbuffer render");
+	D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Deferred final pass");
 
 	mImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
 	mImmediateContext->ClearRenderTargetView(mRenderTargetView, ClearColor);
 	mImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
-
+    UpdateViewport(swapChainDesc);
+    
 	{
+        //build buffers first
+        {
+            mDirLight.GetMVPMatrix(&mMemBufferForDeferredPass.matMVPLight);
+
+            XMVECTOR det;
+            XMMATRIX vmat = XMMatrixInverse(&det,
+                XMMatrixTranspose(mainCamera.getProjMatrix()) *
+                XMMatrixTranspose(mainCamera.getViewMatrix()));
+
+            mMemBufferForDeferredPass.matMVPInv = vmat;
+
+            mImmediateContext->UpdateSubresource(mCBforDeferredPass, 0, NULL, &mMemBufferForDeferredPass, 0, 0);
+        }
+
         D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Deferred");
 
 		mImmediateContext->OMSetDepthStencilState(mDSFullscreenPass, sref);
 
 		// fullscreen quad
-		mImmediateContext->PSSetShader(mPixelShaderQuad, NULL, 0);
+		mImmediateContext->PSSetShader(mPixelShaderDeferred, NULL, 0);
 		mImmediateContext->VSSetShader(mVertexShaderQuad, NULL, 0);
 
-		ID3D11ShaderResourceView* srviews[1] = { mReprojectionVisualSRV };
-		mImmediateContext->PSSetShaderResources(0, 1, srviews);
+        ID3D11ShaderResourceView* srviews[4] = { mRTSecondSRV, mDSSecondSRV, mShadowMapSRV, mWarpBufferSRV };
+		mImmediateContext->PSSetShaderResources(0, 4, srviews);
+
+        ID3D11Buffer* csbuffers[1] = { mCBforDeferredPass };
+        mImmediateContext->PSSetConstantBuffers(0, 1, csbuffers);
 
 		RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0, 0), XMFLOAT2(1, 1));
+
+        srviews[0] = NULL;
+        srviews[1] = NULL;
+        srviews[2] = NULL;
+        srviews[3] = NULL;
+        mImmediateContext->PSSetShaderResources(0, 4, srviews);
+
 
         D3DPERF_EndEvent();
     }
 
 
+
+    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	// ADDITIONAL stuff for debug purpose:
-    // quads   
     {
         mImmediateContext->IASetInputLayout( mLayoutPT );
 
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 0, 0), L"Quads");
+        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 1), L"Quads");
 
         mImmediateContext->PSSetShader(mPixelShaderQuad, NULL, 0);
         mImmediateContext->VSSetShader(mVertexShaderQuad, NULL, 0);
 
-        ID3D11ShaderResourceView* srviews[1] = { mRTSecondSRV };
+        ID3D11ShaderResourceView* srviews[1] = { mReprojectionVisualSRV };
         mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
         RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.01, 0.01), XMFLOAT2(0.2,0.2));
 
 		// depth map
-		srviews[0] = mShadowMapSRV;
+		srviews[0] = mSMTempVisSRV;
 		mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
 		RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.21, 0.01), XMFLOAT2(0.2, 0.2));
+
 
 		// buffer visualize
 		//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -400,15 +452,14 @@ HRESULT TestProject::RenderScene()
 		mImmediateContext->PSSetShader(mPixelShaderBufferVis, NULL, 0);
 		mImmediateContext->VSSetShader(mVertexShaderBufferVis, NULL, 0);
 
-		srviews[0] = mImportanceBufferSRV;
+		srviews[0] = mWarpBufferSRV;
 		mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
-		RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.41, 0.01), XMFLOAT2(0.2, 0.2));
+		RenderQuad(mImmediateContext, mDevice, XMFLOAT2(0.01, 0.22), XMFLOAT2(0.2, 0.04));
 
         D3DPERF_EndEvent();
     }
     
-
 
 
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
@@ -636,6 +687,7 @@ HRESULT TestProject::InitScene()
     
     FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShader);
     FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS_QUAD", "vs_4_0", &pVSBlob, &mVertexShaderQuad);
+    FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS_RTW", "vs_4_0", &pVSBlob, &mVertexShaderRTW);
 	FUtil::InitVertexShader(mDevice, "BufferVisualizer.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShaderBufferVis);
 
     ID3DBlob* pPSBlob = NULL;
@@ -643,6 +695,7 @@ HRESULT TestProject::InitScene()
     FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShader);
 	FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS_QUAD", "ps_4_0", &pPSBlob, &mPixelShaderQuad);
 	FUtil::InitPixelShader(mDevice, "BufferVisualizer.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShaderBufferVis);
+    FUtil::InitPixelShader(mDevice, "Deferred.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShaderDeferred);
 
 
 	//----------------------------------------------------------------------------
@@ -686,7 +739,8 @@ HRESULT TestProject::InitScene()
 
 
     // init camera
-    mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 1.0, 100.0);
+    mainCamera.setProjectionParams(XM_PIDIV4,
+        swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.01, 300.0);
     mainCamera.setOrbitParams( 15, XMFLOAT3(0,0,0) );
 
    
@@ -759,6 +813,13 @@ HRESULT TestProject::InitScene()
 	}
 	V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mComputeShaderImportance));
 
+    hr = FUtil::CompileShaderFromFile("WarpCalculator.hlsl", "CalcWarp", "cs_4_0", &pCSBlob);
+    if (FAILED(hr))
+    {
+        FUtil::Log("Error: cannot compile compute shader for importance");
+        return hr;
+    }
+    V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mComputeShaderWarp));
 
 
 
@@ -801,11 +862,33 @@ HRESULT TestProject::InitScene()
 
 		hr = mDevice->CreateShaderResourceView(mShadowMapTexture, &shaderResourceViewDesc, &mShadowMapSRV);
 		V_RETURN(hr);
+
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        // textures for debug purposes only
+        smDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        smDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+        V_RETURN(mDevice->CreateTexture2D(&smDesc, NULL, &mSMTempVis));
+
+        D3D11_RENDER_TARGET_VIEW_DESC DescRT;
+        DescRT.Format = smDesc.Format;
+        DescRT.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+        DescRT.Texture2D.MipSlice = 0;
+        V_RETURN(mDevice->CreateRenderTargetView(mSMTempVis, &DescRT, &mSMTempVisRTV));
+
+        // Create the resource view
+        D3D11_SHADER_RESOURCE_VIEW_DESC DescRV;
+        DescRV.Format = smDesc.Format;
+        DescRV.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        DescRV.Texture2D.MipLevels = 1;
+        DescRV.Texture2D.MostDetailedMip = 0;
+        V_RETURN(mDevice->CreateShaderResourceView(mSMTempVis, &DescRV, &mSMTempVisSRV));
 	}
 
 
 	// create reprojection texture and its views
 	{
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 		// prepare for visualization - debug purpose only
 		{
 			D3D11_BUFFER_DESC tempBDesc;
@@ -848,8 +931,9 @@ HRESULT TestProject::InitScene()
 			hr = mDevice->CreateShaderResourceView(mReprojectionVisualTexture, &tempSRVDesc, &mReprojectionVisualSRV);
 			V_RETURN(hr);
 		}
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-		// constant buffer
+		// constant buffers
 		D3D11_BUFFER_DESC bd;
 		ZeroMemory(&bd, sizeof(bd));
 		bd.Usage = D3D11_USAGE_DEFAULT;
@@ -857,8 +941,11 @@ HRESULT TestProject::InitScene()
 		bd.CPUAccessFlags = 0;
 		bd.ByteWidth = sizeof(CBforCSReprojection);
 		hr = mDevice->CreateBuffer(&bd, NULL, &mCBforCS);
-		if (FAILED(hr))
-			return hr;
+        V_RETURN(hr);
+
+        bd.ByteWidth = sizeof(CBforDeferredPass);
+        hr = mDevice->CreateBuffer(&bd, NULL, &mCBforDeferredPass);
+        V_RETURN(hr);
 
 
 		D3D11_BUFFER_DESC sbDesc;
@@ -877,6 +964,7 @@ HRESULT TestProject::InitScene()
 		delete[] arr;
 
 		V_RETURN(hr);
+
 
 		D3D11_SHADER_RESOURCE_VIEW_DESC sbSRVDesc;
 		ZeroMemory(&sbSRVDesc, sizeof(D3D11_SHADER_RESOURCE_VIEW_DESC));
@@ -911,18 +999,24 @@ HRESULT TestProject::InitScene()
 			arr = new float[1024*2];
 			ZeroMemory(arr, sizeof(arr));
 			InitData.pSysMem = arr;
-			hr = mDevice->CreateBuffer(&sbDesc, &InitData, &mImportanceBuffer);
+            hr = mDevice->CreateBuffer(&sbDesc, &InitData, &mImportanceBuffer);
+            hr = mDevice->CreateBuffer(&sbDesc, &InitData, &mWarpBuffer);
 			delete[] arr;
 			V_RETURN(hr);
 
-
 			sbSRVDesc.Buffer.NumElements = 1024;
-			hr = mDevice->CreateShaderResourceView(mImportanceBuffer, &sbSRVDesc, &mImportanceBufferSRV);
+            sbSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+            hr = mDevice->CreateShaderResourceView(mImportanceBuffer, &sbSRVDesc, &mImportanceBufferSRV);
+            hr = mDevice->CreateShaderResourceView(mWarpBuffer, &sbSRVDesc, &mWarpBufferSRV);
 			V_RETURN(hr);
 
 			sbUAVDesc.Buffer.NumElements = 1024;
-			hr = mDevice->CreateUnorderedAccessView(mImportanceBuffer, &sbUAVDesc, &mImportanceBufferUAV);
+            sbUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
+            hr = mDevice->CreateUnorderedAccessView(mImportanceBuffer, &sbUAVDesc, &mImportanceBufferUAV);
+            hr = mDevice->CreateUnorderedAccessView(mWarpBuffer, &sbUAVDesc, &mWarpBufferUAV);
+            V_RETURN(hr);
 		}
+
 	}
 
 

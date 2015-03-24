@@ -51,11 +51,18 @@ struct __declspec(align(16)) CBforCSReprojection
 	XMMATRIX matMVPLight;
 };
 
+struct __declspec(align(16)) CBforDeferredPass
+{
+    XMMATRIX matMVPLight;
+    XMMATRIX matMVPInv;
+};
+
 
 class __declspec(align(16)) TestProject : public DXApp
 {
 private:
 
+    //-----------------------------------------------------------
     // shaders
 	ID3D11VertexShader*                 mVertexShader = NULL;
 	ID3D11PixelShader*                  mPixelShader = NULL;
@@ -63,14 +70,23 @@ private:
 	ID3D11VertexShader*                 mVertexShaderQuad = NULL;
 	ID3D11PixelShader*                  mPixelShaderQuad = NULL;
 
+    //special shaders
+    ID3D11VertexShader*                 mVertexShaderRTW = NULL;
+    ID3D11PixelShader*                  mPixelShaderDeferred = NULL;
+
+
+    //-----------------------------------------------------------
     // input layouts pointers
 	ID3D11InputLayout*                  mLayoutPT = NULL;
 	ID3D11InputLayout*                  mLayoutPNT = NULL;
 
-    // shader buffers
+
+    // shader constant buffers
 	ID3D11Buffer*                       mCBChangesEveryFrame = NULL;
 	ID3D11Buffer*                       mCBforCS = NULL;
-	
+    ID3D11Buffer*                       mCBforDeferredPass = NULL;
+
+
 	ID3D11ShaderResourceView*           mTextureRV = NULL;
 	ID3D11SamplerState*                 mSamplerLinear = NULL;
 	ID3D11SamplerState*					mBackbufferSampler = NULL;
@@ -85,7 +101,8 @@ private:
 
     // compute
 	ID3D11ComputeShader*                mComputeShaderReprojection = NULL;
-	ID3D11ComputeShader*				mComputeShaderImportance = NULL;
+    ID3D11ComputeShader*				mComputeShaderImportance = NULL;
+    ID3D11ComputeShader*				mComputeShaderWarp = NULL;
 
 
 	// alternative render target
@@ -102,14 +119,26 @@ private:
 	ID3D11ShaderResourceView*			mShadowMapSRV = NULL;
 	ID3D11DepthStencilView*				mShadowMapDSV = NULL;
 	
+    //>>>>>> unnecessary - for debug purpose only
+    ID3D11Texture2D*                    mSMTempVis = NULL;
+    ID3D11ShaderResourceView*           mSMTempVisSRV = NULL;
+    ID3D11RenderTargetView*             mSMTempVisRTV = NULL;
+
+
 	// a couple of textures for importance map
 	ID3D11Buffer*						mReprojectionBuffer = NULL;
 	ID3D11ShaderResourceView*			mReprojectionSRV = NULL;
 	ID3D11UnorderedAccessView*			mReprojectionUAV = NULL;
 
+    // TODO: if we want to make blur, we'd wanna to make some
+    // sort of swapchain out of these two
 	ID3D11Buffer*						mImportanceBuffer = NULL;
 	ID3D11ShaderResourceView*			mImportanceBufferSRV = NULL;
 	ID3D11UnorderedAccessView*			mImportanceBufferUAV = NULL;
+
+    ID3D11Buffer*						mWarpBuffer = NULL;
+    ID3D11ShaderResourceView*			mWarpBufferSRV = NULL;
+    ID3D11UnorderedAccessView*			mWarpBufferUAV = NULL;
 
 
 	// stuff for visualizing - DEBUG purpose only
@@ -150,6 +179,7 @@ private:
 	// constant buffers
     CBChangesEveryFrame cb;
 	CBforCSReprojection	mMemBufferForCSReprojection;
+    CBforDeferredPass mMemBufferForDeferredPass;
 
 public:
 	TestProject();

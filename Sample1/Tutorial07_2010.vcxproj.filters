@@ -115,10 +115,18 @@
     <None Include="BufferVisualizer.fx">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="WarpCalculator.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="VertexFormatsInitializer.fx">
       <Filter>FW\VertexFormat</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Deferred.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

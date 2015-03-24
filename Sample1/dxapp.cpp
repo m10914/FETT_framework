@@ -157,6 +157,24 @@ HRESULT DXApp::Init(HWND lHwnd, HINSTANCE hInstance)
 	return S_OK;
 }
 
+void DXApp::UpdateViewport(DXGI_SWAP_CHAIN_DESC& desc)
+{
+    UpdateViewport(desc.BufferDesc.Width, desc.BufferDesc.Height);
+}
+
+void DXApp::UpdateViewport(int x, int y)
+{
+    D3D11_VIEWPORT vp;
+    ZeroMemory(&vp, sizeof(vp));
+    vp.Width = x;
+    vp.Height = y;
+    vp.MinDepth = 0.0F;
+    vp.MaxDepth = 1.0F;
+
+    mImmediateContext->RSSetViewports(1, &vp);  
+}
+
+
 double DXApp::getCurrentComputerTime()
 {
     LARGE_INTEGER t1;

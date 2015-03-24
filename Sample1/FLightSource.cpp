@@ -51,5 +51,6 @@ void FDirectionalLight::GetTransformMatrix(XMMATRIX* mOut)
 
 void FDirectionalLight::GetProjectionMatrix(XMMATRIX* mOut)
 {
-	*mOut = XMMatrixTranspose(XMMatrixOrthographicLH(70, 70, 0.01, 150));
+    *mOut = XMMatrixTranspose(XMMatrixOrthographicLH(70, 70, 0.01, 150));
+    //*mOut = XMMatrixTranspose(XMMatrixPerspectiveFovLH(XM_PIDIV4, 1, 0.01, 150));
 }
