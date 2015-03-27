@@ -25,7 +25,6 @@ DXCamera::~DXCamera()
 }
 
 
-
 void DXCamera::setProjectionParams(double fov, double aspect, double nearplane, double farplane)
 {
     this->aspect = aspect;

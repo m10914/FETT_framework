@@ -225,7 +225,7 @@
     </ClCompile>
     <Link>
       <AdditionalOptions> %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;d3dx11.lib;d3dx9.lib;dxerr.lib;dxguid.lib;winmm.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d9.lib;d3d11.lib;d3dcompiler.lib;d3dx11.lib;d3dx9.lib;dxerr.lib;dxguid.lib;winmm.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -390,9 +390,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
+    <ClCompile Include="FPGrid.cpp" />
     <ClCompile Include="FLightSource.cpp" />
     <ClCompile Include="FPCube.cpp" />
     <ClCompile Include="dxapp.cpp" />
+    <ClCompile Include="FPGridCube.cpp" />
     <ClCompile Include="FPPlane.cpp" />
     <ClCompile Include="FPrimitive.cpp" />
     <ClCompile Include="FUtil.cpp" />
@@ -409,6 +411,8 @@
     <ClInclude Include="FLightSource.h" />
     <ClInclude Include="FPCube.h" />
     <ClInclude Include="dxapp.h" />
+    <ClInclude Include="FPGrid.h" />
+    <ClInclude Include="FPGridCube.h" />
     <ClInclude Include="FPPlane.h" />
     <ClInclude Include="FPrimitive.h" />
     <ClInclude Include="FUtil.h" />

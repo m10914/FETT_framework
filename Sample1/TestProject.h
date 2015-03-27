@@ -11,8 +11,6 @@
 //#define _XM_NO_INTRINSICS_ 1
 
 
-#ifdef PROJ_TESTPROJECT
-
 #include <windows.h>
 #include <d3d11.h>
 #include <d3dx11.h>
@@ -27,6 +25,9 @@
 #include "camera.h"
 #include "FPCube.h"
 #include "FPPlane.h"
+#include "FPGrid.h"
+#include "FPGridCube.h"
+
 #include "d3d9.h" //for d3dperf stuff only!
 
 #include "FLightSource.h"
@@ -41,6 +42,7 @@
 
 struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet
 {
+    XMMATRIX matMVPLight;
 	XMFLOAT4 vMeshColor;
 };
 
@@ -72,6 +74,7 @@ private:
 
     //special shaders
     ID3D11VertexShader*                 mVertexShaderRTW = NULL;
+    ID3D11PixelShader*                  mPixelShaderRTW = NULL;
     ID3D11PixelShader*                  mPixelShaderDeferred = NULL;
 
 
@@ -93,6 +96,7 @@ private:
 	ID3D11SamplerState*					mDepthSampler = NULL;
 
 	ID3D11RasterizerState*              mRSOrdinary = NULL;
+    ID3D11RasterizerState*              mRSShadowMap = NULL;
 	ID3D11RasterizerState*              mRSCullNone = NULL;
 	ID3D11RasterizerState*              mRSWireframe = NULL;
 
@@ -103,6 +107,7 @@ private:
 	ID3D11ComputeShader*                mComputeShaderReprojection = NULL;
     ID3D11ComputeShader*				mComputeShaderImportance = NULL;
     ID3D11ComputeShader*				mComputeShaderWarp = NULL;
+    ID3D11ComputeShader*                mComputeShaderBlurWarp = NULL;
 
 
 	// alternative render target
@@ -130,15 +135,11 @@ private:
 	ID3D11ShaderResourceView*			mReprojectionSRV = NULL;
 	ID3D11UnorderedAccessView*			mReprojectionUAV = NULL;
 
-    // TODO: if we want to make blur, we'd wanna to make some
-    // sort of swapchain out of these two
-	ID3D11Buffer*						mImportanceBuffer = NULL;
-	ID3D11ShaderResourceView*			mImportanceBufferSRV = NULL;
-	ID3D11UnorderedAccessView*			mImportanceBufferUAV = NULL;
 
-    ID3D11Buffer*						mWarpBuffer = NULL;
-    ID3D11ShaderResourceView*			mWarpBufferSRV = NULL;
-    ID3D11UnorderedAccessView*			mWarpBufferUAV = NULL;
+    // swapchain for warp buffers
+    ID3D11Buffer*						mWarpBuffer[2];
+    ID3D11ShaderResourceView*			mWarpBufferSRV[2];
+    ID3D11UnorderedAccessView*			mWarpBufferUAV[2];
 
 
 	// stuff for visualizing - DEBUG purpose only
@@ -171,8 +172,8 @@ private:
 	};
 	ControlState mCurrentControlState = CS_Default;
 
-	FPCube	cube;
-	FPPlane	plane;
+	FPGridCube	cube;
+	FPGrid	plane;
 
 	FDirectionalLight mDirLight;
 
@@ -197,16 +198,21 @@ protected:
 	HRESULT PrepareRT();
     
     //debug rendering
-    void RenderCamera(LPD3DDeviceContext context, LPD3D11Device device, XMMATRIX* invViewProjMatrix);
-    void RenderPoints(LPD3DDeviceContext context, LPD3D11Device device, XMVECTOR* points, int numOfPoints);
-    void RenderQuad(LPD3DDeviceContext context, LPD3D11Device device, XMFLOAT2 offset, XMFLOAT2 relativeSize);
+    void _renderCamera(LPD3DDeviceContext context, LPD3D11Device device, XMMATRIX* invViewProjMatrix);
+    void _renderPoints(LPD3DDeviceContext context, LPD3D11Device device, XMVECTOR* points, int numOfPoints);
+    void _renderQuad(LPD3DDeviceContext context, LPD3D11Device device, XMFLOAT2 offset, XMFLOAT2 relativeSize);
 
+
+    // render stages
+    void _renderSceneToGBuffer();
+    void _renderComputeWarpMaps();
+    void _renderShadowMaps();
+    void _renderDeferredShading();
+
+    void _renderSceneObjects(bool bPlane = true, bool bCubes = true);
 
 	virtual HRESULT RenderScene() override;
 	virtual HRESULT InitScene() override;
 	virtual HRESULT ReleaseScene() override;
     virtual HRESULT FrameMove() override;
 };
-
-
-#endif PROJ_TESTPROJECT

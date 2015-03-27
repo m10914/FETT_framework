@@ -321,6 +321,9 @@ HRESULT DXApp::PreRender()
     }
     currentFrame++;
 
+    if (currentFrame % 1000 == 0)
+        FUtil::Log("Time: %.3f\n", (float)deltaTime);
+
     this->FrameMove();
 
     return S_OK;

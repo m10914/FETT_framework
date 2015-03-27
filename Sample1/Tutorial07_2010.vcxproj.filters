@@ -60,6 +60,12 @@
     <ClCompile Include="MathHelper.cpp">
       <Filter>FW</Filter>
     </ClCompile>
+    <ClCompile Include="FPGrid.cpp">
+      <Filter>FW\primitives</Filter>
+    </ClCompile>
+    <ClCompile Include="FPGridCube.cpp">
+      <Filter>FW\primitives</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CLInclude Include="resource.h">
@@ -98,6 +104,12 @@
     <ClInclude Include="MathHelper.h">
       <Filter>FW</Filter>
     </ClInclude>
+    <ClInclude Include="FPGrid.h">
+      <Filter>FW\primitives</Filter>
+    </ClInclude>
+    <ClInclude Include="FPGridCube.h">
+      <Filter>FW\primitives</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="ProjectedGrid.hlsl">
@@ -118,15 +130,13 @@
     <None Include="WarpCalculator.hlsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="Deferred.fx">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="VertexFormatsInitializer.fx">
       <Filter>FW\VertexFormat</Filter>
     </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="Deferred.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
   </ItemGroup>
 </Project>

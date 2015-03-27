@@ -48,12 +48,11 @@ struct PS_INPUT
 float4 PS( PS_INPUT input ) : SV_Target
 {
     // reconstruction
-    float depth = txDepth.SampleLevel(samDepth, input.Tex, 0).r;
+    float depth = txDepth.Sample(samDepth, input.Tex).r;
     float2 cspos = float2(input.Tex.x * 2 - 1, (1 - input.Tex.y) * 2 - 1);
     float4 depthCoord = float4(cspos.xy, depth, 1);
     depthCoord = mul(depthCoord, matMVPInv);
     depthCoord /= depthCoord.w;
-    depthCoord.w = 1;
 
     // reprojection
     float4 ncoord = mul(depthCoord, matMVPLight);
@@ -61,16 +60,19 @@ float4 PS( PS_INPUT input ) : SV_Target
     ncoord.xy = mad(ncoord.xy, 0.5, 0.5);
 
     // warping
-    int2 index = ncoord.xy * WIDTH;
-    float2 warps = float2(warpMaps[index.x].y, warpMaps[index.y].x);
-    ncoord.xy += warps*0.5;
+    float2 indexS = ncoord.xy * WIDTH;
+        float2 warps = float2(
+        lerp(warpMaps[ceil(indexS.x)].y, warpMaps[ceil(indexS.x) + 1].y, frac(indexS.x)),
+        lerp(warpMaps[ceil(indexS.y)].x, warpMaps[ceil(indexS.y) + 1].x, frac(indexS.y))
+        );
+    ncoord.xy += warps;
 
-    float shadowDepth = txShadowMap.SampleLevel(samDepth, float2(ncoord.xy), 0).r;
-    //float shadowDepth = txShadowMap.SampleLevel(samDepth, float2(input.Tex.xy), 0).r;
 
-    //return float4(ncoord.zzz, 1);
+    float shadowDepth = txShadowMap.Sample(samDepth, float2(ncoord.x, 1-ncoord.y)).r;
 
-    float shadow = ncoord.z > shadowDepth + 0.0002 ? 0.5 : 1;
+    float shadow = ncoord.z > shadowDepth ? 0.5 : 1;
+    if (ncoord.x > 1 || ncoord.y > 1 || ncoord.x < 0 || ncoord.y < 0)
+        shadow = 1;
 
     return float4(txDiffuse.Sample( samLinear, input.Tex ).xyz, 1) * shadow;
 }
