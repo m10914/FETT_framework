@@ -11,7 +11,7 @@ SamplerState samDepth : register(s2);
 RWStructuredBuffer<float2> outBuffer : register(u0); //as soon as x == y, we can do this trick - unite two buffers into one
 
 
-StructuredBuffer<float> inBuffer : register(t0);
+StructuredBuffer<int> inBuffer : register(t0);
 
 
 [numthreads(8, 1, 1)] // dispatch 128,1,1 - we have 1024 x calls
@@ -22,8 +22,8 @@ void CalcImportance(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, ui
 	float2 res = 0;
 	for (int i = 0; i < WIDTH; i++)
 	{
-		res.x = max(res.x, inBuffer[int(DTid.x*WIDTH) + i]);
-		res.y = max(res.y, inBuffer[DTid.x + int(i*WIDTH)]);
+		res.x = max(res.x, float(inBuffer[int(DTid.x*WIDTH) + i]) / 100000.0);
+		res.y = max(res.y, float(inBuffer[DTid.x + int(i*WIDTH)]) / 100000.0);
 	}
 	outBuffer[DTid.x] = res.xy;
 }

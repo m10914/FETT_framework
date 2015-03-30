@@ -11,7 +11,7 @@ SamplerState samDepth : register(s2);
 
 Texture2D txDepthBuffer : register(t0);
 
-RWStructuredBuffer<float> outBuffer : register(u0);
+RWStructuredBuffer<int> outBuffer : register(u0);
 
 
 cbuffer cbDefault : register(b0)
@@ -25,7 +25,6 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 {
 	float2 texCoord = float2(float2(DTid.xy) / WIDTH);
 	float depth = txDepthBuffer.SampleLevel(samLinear, texCoord, 0).r;
-	//int debugIndex = DTid.x + DTid.y * WIDTH;
 
 	// reconstruction
 	float2 cspos = float2(texCoord.x * 2 - 1, (1 - texCoord.y) * 2 - 1);
@@ -34,7 +33,6 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 	depthCoord /= depthCoord.w;
 	depthCoord.w = 1;
 
-
 	// reprojection
 	float4 ncoord = mul(depthCoord, matMVPLight);
 	ncoord /= ncoord.w;
@@ -42,8 +40,9 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 	
 	int index = int(ncoord.x * WIDTH) + int((1-ncoord.y) * WIDTH) * WIDTH;
 
-	//outBuffer[debugIndex] = float(index) / SQUARE;
+    int rval = saturate(1 - depth) * 100000;
 
-	if (index < SQUARE && index >= 0)
-		outBuffer[index] = max(outBuffer[index], 1 - depth);
+    if (index < SQUARE && index >= 0)
+        InterlockedMax(outBuffer[index], rval);
+        //outBuffer[index] = max(rval, outBuffer[index]);
 }

@@ -205,8 +205,8 @@ PS_RTW_INPUT VS_RTW(VS_RTW_INPUT input)
 
 float4 PS_RTW(PS_RTW_INPUT input) : SV_Target
 {
-    return float4(input.Warp.xy, 1, 1);
-    //return float4(txDiffuse.Sample(samLinear, input.Tex).xyz, 1) * vMeshColor;
+    //return float4(input.Warp.xy, 1, 1);
+    return float4(txDiffuse.Sample(samLinear, input.Tex).xyz, 1);
 }
 
 

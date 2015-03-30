@@ -202,6 +202,7 @@ HRESULT TestProject::RenderScene()
 
         // FULLSCREEN QUAD
         ID3D11ShaderResourceView* srviews[1] = { mRTSecondSRV };
+        //ID3D11ShaderResourceView* srviews[1] = { mReprojectionVisualSRV };
         mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
         _renderQuad(mImmediateContext, mDevice, XMFLOAT2(0.00, 0.00), XMFLOAT2(1, 1));
@@ -229,9 +230,9 @@ HRESULT TestProject::RenderScene()
 		mImmediateContext->VSSetShader(mVertexShaderBufferVis, NULL, 0);
 
 		srviews[0] = mWarpBufferSRV[0];
-		mImmediateContext->PSSetShaderResources(0, 1, srviews);
+        mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
-		_renderQuad(mImmediateContext, mDevice, XMFLOAT2(0.01, 0.22), XMFLOAT2(0.2, 0.04));
+		_renderQuad(mImmediateContext, mDevice, XMFLOAT2(0.01, 0.22), XMFLOAT2(0.2, 0.02));
 
         D3DPERF_EndEvent();
     }
@@ -344,7 +345,7 @@ void TestProject::_renderComputeWarpMaps()
         mImmediateContext->CSSetShaderResources(0, 1, srviews);
 
         // launch!
-        int tG = ceil(1024 / 16.f);
+        int tG = ceil(1024 / 16.0f);
         mImmediateContext->Dispatch(tG, tG, 1); //numthreads(16,16,1)
 
         // unbind
@@ -397,6 +398,7 @@ void TestProject::_renderComputeWarpMaps()
 
         D3DPERF_EndEvent();
 
+
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 255, 0), L"create warp maps");
@@ -437,7 +439,7 @@ void TestProject::_renderComputeWarpMaps()
         D3DPERF_EndEvent();
 
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
+        
 
 
         // Unbind
@@ -487,7 +489,7 @@ void TestProject::_renderShadowMaps()
         mDirLight.GetTransformMatrix(&cb.mView);
         cb.mWorld = XMMatrixIdentity();
 
-        _renderSceneObjects();
+        _renderSceneObjects(false);
 
         vsSRVs[1] = NULL;
         mImmediateContext->VSSetShaderResources(0, 2, vsSRVs);
@@ -900,8 +902,10 @@ HRESULT TestProject::InitScene()
     //---------------------------------------
     // compute shader initialization
 
+    LPCSTR version = "cs_5_0";
+
     ID3DBlob* pCSBlob = NULL;
-    hr = FUtil::CompileShaderFromFile("Reprojection.hlsl", "CSMain", "cs_4_0", &pCSBlob);
+    hr = FUtil::CompileShaderFromFile("Reprojection.hlsl", "CSMain", version, &pCSBlob);
     if (FAILED(hr))
     {
         FUtil::Log("Error: cannot compile compute shader for reprojection");
@@ -910,7 +914,7 @@ HRESULT TestProject::InitScene()
     V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mComputeShaderReprojection));
 	SAFE_RELEASE(pCSBlob);
 
-	hr = FUtil::CompileShaderFromFile("Importance.hlsl", "CalcImportance", "cs_4_0", &pCSBlob);
+    hr = FUtil::CompileShaderFromFile("Importance.hlsl", "CalcImportance", version, &pCSBlob);
 	if (FAILED(hr))
 	{
 		FUtil::Log("Error: cannot compile compute shader for importance");
@@ -918,7 +922,7 @@ HRESULT TestProject::InitScene()
 	}
 	V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mComputeShaderImportance));
 
-    hr = FUtil::CompileShaderFromFile("WarpCalculator.hlsl", "CalcWarp", "cs_4_0", &pCSBlob);
+    hr = FUtil::CompileShaderFromFile("WarpCalculator.hlsl", "CalcWarp", version, &pCSBlob);
     if (FAILED(hr))
     {
         FUtil::Log("Error: cannot compile compute shader for importance");
@@ -926,7 +930,7 @@ HRESULT TestProject::InitScene()
     }
     V_RETURN(mDevice->CreateComputeShader(pCSBlob->GetBufferPointer(), pCSBlob->GetBufferSize(), NULL, &mComputeShaderWarp));
 
-    hr = FUtil::CompileShaderFromFile("WarpCalculator.hlsl", "BlurWarp", "cs_4_0", &pCSBlob);
+    hr = FUtil::CompileShaderFromFile("WarpCalculator.hlsl", "BlurWarp", version, &pCSBlob);
     if (FAILED(hr))
     {
         FUtil::Log("Error: cannot compile compute shader for importance");
@@ -1066,11 +1070,11 @@ HRESULT TestProject::InitScene()
 		ZeroMemory(&sbDesc, sizeof(D3D11_BUFFER_DESC));
 		sbDesc.Usage = D3D11_USAGE_DEFAULT;
 		sbDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-		sbDesc.ByteWidth = 1024 * 1024 * sizeof(float);
-		sbDesc.StructureByteStride = sizeof(float);
+		sbDesc.ByteWidth = 1024 * 1024 * sizeof(int);
+		sbDesc.StructureByteStride = sizeof(int);
 		sbDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
-		float* arr = new float[1024 * 1024];
+		int* arr = new int[1024 * 1024];
 		memset(arr, 0, sizeof(arr));
 		D3D11_SUBRESOURCE_DATA InitData;
 		InitData.pSysMem = arr;
@@ -1084,7 +1088,7 @@ HRESULT TestProject::InitScene()
 		ZeroMemory(&sbSRVDesc, sizeof(D3D11_SHADER_RESOURCE_VIEW_DESC));
 		sbSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
 		sbSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-		sbSRVDesc.Buffer.ElementWidth = sizeof(float);
+		sbSRVDesc.Buffer.ElementWidth = sizeof(int);
 		sbSRVDesc.Buffer.ElementOffset = 0;
 		sbSRVDesc.Buffer.FirstElement = 0;
 		sbSRVDesc.Buffer.NumElements = 1024 * 1024;
@@ -1110,7 +1114,7 @@ HRESULT TestProject::InitScene()
 			sbDesc.StructureByteStride = sizeof(float) * 2;
 			sbDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
-			arr = new float[1024*2];
+			float* arr = new float[1024*2];
 			ZeroMemory(arr, sizeof(arr));
 			InitData.pSysMem = arr;
             hr = mDevice->CreateBuffer(&sbDesc, &InitData, &mWarpBuffer[0]);
