@@ -172,8 +172,8 @@ private:
 	};
 	ControlState mCurrentControlState = CS_Default;
 
-	FPGridCube	cube;
-	FPGrid	plane;
+	FPCube	cube;
+	FPPlane	plane;
 
 	FDirectionalLight mDirLight;
 

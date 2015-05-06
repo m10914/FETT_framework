@@ -20,9 +20,9 @@ DXApp* initApplication()
 
 
 TestProject::TestProject():
-	mVMeshColor( 0.7f, 0.7f, 0.7f, 1.0f ),
+	mVMeshColor( 0.7f, 0.7f, 0.7f, 1.0f )/*,
     plane(1024),
-    cube(64)
+    cube(64)*/
 {
     mWarpBuffer[0] = NULL;
     mWarpBuffer[1] = NULL;
@@ -154,6 +154,12 @@ void TestProject::_renderSceneObjects(bool bPlane, bool bCubes)
 
     if (bCubes)
     {
+        static bool bTes = false;
+        if (!bTes)
+        {
+            bTes = true;
+            cube.tesselate(0.1, mDevice, mImmediateContext);
+        }
         //cubes
         cube.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
@@ -267,7 +273,8 @@ void TestProject::_renderSceneToGBuffer()
 
 
     mImmediateContext->OMSetDepthStencilState(mDSOrdinary, sref);
-    mImmediateContext->RSSetState(mRSOrdinary);
+    //mImmediateContext->RSSetState(mRSOrdinary);
+    mImmediateContext->RSSetState(mRSWireframe);
 
     // set RT and clear it
     mImmediateContext->OMSetRenderTargets(1, &mRTSecondRTV, mDSSecondDSV);    
