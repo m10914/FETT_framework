@@ -158,7 +158,7 @@ void TestProject::_renderSceneObjects(bool bPlane, bool bCubes)
         if (!bTes)
         {
             bTes = true;
-            cube.tesselate(0.1, mDevice, mImmediateContext);
+            cube.tesselate(0.05, mDevice, mImmediateContext);
         }
         //cubes
         cube.position = XMFLOAT3(0, 0, 0);
