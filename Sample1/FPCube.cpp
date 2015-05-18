@@ -104,6 +104,8 @@ HRESULT FPCube::Init(LPD3D11Device device)
 	InitData.pSysMem = indices;
 	hr = device->CreateBuffer( &bd, &InitData, &mIndexBuffer );
 
+    numPrims = 36;
+
 	return hr;
 }
 
@@ -397,9 +399,6 @@ HRESULT FPCube::Render(LPD3DDeviceContext context)
 
 	// Set index buffer
 	context->IASetIndexBuffer( mIndexBuffer, DXGI_FORMAT_R16_UINT, 0 );
-
-	// Set primitive topology
-	context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 
 	// draw dat shit
 	context->DrawIndexed( numPrims, 0, 0 );

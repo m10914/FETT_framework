@@ -72,9 +72,6 @@ HRESULT FPPlane::Render(LPD3DDeviceContext context)
 	// Set index buffer
 	context->IASetIndexBuffer( mIndexBuffer, DXGI_FORMAT_R16_UINT, 0 );
 
-	// Set primitive topology
-	context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
-
 	// draw dat shit
 	context->DrawIndexed( 6, 0, 0 );
 

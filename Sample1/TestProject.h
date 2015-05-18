@@ -68,6 +68,8 @@ private:
     // shaders
 	ID3D11VertexShader*                 mVertexShader = NULL;
 	ID3D11PixelShader*                  mPixelShader = NULL;
+    ID3D11HullShader*                   mHullShader = NULL;
+    ID3D11DomainShader*                 mDomainShader = NULL;
 
 	ID3D11VertexShader*                 mVertexShaderQuad = NULL;
 	ID3D11PixelShader*                  mPixelShaderQuad = NULL;

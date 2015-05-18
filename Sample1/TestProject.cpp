@@ -154,12 +154,14 @@ void TestProject::_renderSceneObjects(bool bPlane, bool bCubes)
 
     if (bCubes)
     {
-        static bool bTes = false;
+        // invoke manual tesselation
+        /*static bool bTes = false;
         if (!bTes)
         {
             bTes = true;
             cube.tesselate(0.05, mDevice, mImmediateContext);
-        }
+        }*/
+
         //cubes
         cube.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
@@ -183,13 +185,13 @@ HRESULT TestProject::RenderScene()
 
 
     // render scene to shadow maps using warp maps
-    _renderShadowMaps();
+    //_renderShadowMaps();
 
     // Render scene to 3 textures: color, normal, depth (auto)
     _renderSceneToGBuffer();
 
 	// compute warp maps
-    _renderComputeWarpMaps();
+    //_renderComputeWarpMaps();
 
     // deferred post-effect: applying lighting to scene
     _renderDeferredShading();
@@ -284,12 +286,18 @@ void TestProject::_renderSceneToGBuffer()
 
     // initial preparation
     mImmediateContext->IASetInputLayout(mLayoutPT);
+    mImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+    //mImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     mImmediateContext->VSSetShader(mVertexShader, NULL, 0);
     mImmediateContext->PSSetShader(mPixelShader, NULL, 0);
+    mImmediateContext->HSSetShader(mHullShader, NULL, 0);
+    mImmediateContext->DSSetShader(mDomainShader, NULL, 0);
+
 
     mImmediateContext->VSSetConstantBuffers(0, 1, &mCBChangesEveryFrame);
     mImmediateContext->PSSetConstantBuffers(0, 1, &mCBChangesEveryFrame);
+    mImmediateContext->DSSetConstantBuffers(0, 1, &mCBChangesEveryFrame);
 
     ID3D11ShaderResourceView* rv[3] = { mTextureRV, mWarpBufferSRV[0], mShadowMapSRV };
     mImmediateContext->PSSetShaderResources(0, 3, rv);
@@ -299,12 +307,15 @@ void TestProject::_renderSceneToGBuffer()
     _renderSceneObjects();
 
 
+    // unbind various stuff - shaders, constants
     rv[0] = NULL;
     rv[1] = NULL;
     rv[2] = NULL;
     mImmediateContext->PSSetShaderResources(0, 3, rv);
     mImmediateContext->VSSetShaderResources(0, 3, rv);
 
+    mImmediateContext->HSSetShader(NULL, NULL, 0);
+    mImmediateContext->DSSetShader(NULL, NULL, 0);
 
     D3DPERF_EndEvent();
 }
@@ -801,6 +812,26 @@ HRESULT TestProject::InitScene()
     FUtil::InitPixelShader(mDevice, "Deferred.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShaderDeferred);
 
 
+    //hull and domain
+    hr = FUtil::CompileShaderFromFile("TestProjectShader.fx", "HS", "hs_5_0", &pPSBlob);
+    if (FAILED(hr))
+    {
+        FUtil::Log("Error: cannot compile hull shader");
+        return hr;
+    }
+    V_RETURN(mDevice->CreateHullShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), NULL, &mHullShader));
+
+    hr = FUtil::CompileShaderFromFile("TestProjectShader.fx", "DS", "ds_5_0", &pPSBlob);
+    if (FAILED(hr))
+    {
+        FUtil::Log("Error: cannot compile domain shader");
+        return hr;
+    }
+    V_RETURN(mDevice->CreateDomainShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), NULL, &mDomainShader));
+
+
+
+
 	//----------------------------------------------------------------------------
 	// Create the constant buffers
 
@@ -869,7 +900,7 @@ HRESULT TestProject::InitScene()
     }
 
     desc.FillMode = D3D11_FILL_WIREFRAME;
-    desc.CullMode = D3D11_CULL_NONE;
+    desc.CullMode = D3D11_CULL_BACK;
     hr = mDevice->CreateRasterizerState(&desc, &mRSWireframe);
     if(FAILED(hr))
     {
