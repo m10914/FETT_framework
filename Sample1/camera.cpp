@@ -82,7 +82,7 @@ void DXCamera::FrameMove(XMFLOAT3 vOffset, XMFLOAT3 vMouse)
             radius*cos(theta)*sin(phi),
             radius*sin(theta),
             radius*cos(theta)*cos(phi),
-            0.0f );
+            0.0f ) + vAt;
 
         break;
 

@@ -125,6 +125,7 @@ private:
     CBChangesEveryFrame cb;
     OceanDescription oceanDesc;
 
+    int waterHeight = 100;
 
 public:
 	TestProject();

@@ -220,12 +220,18 @@ HRESULT TestProject::FrameMove()
 
     //-----------------------------------------------
     // update objects
+    //totalTime = 15000;
 
-    oceanDesc.update(totalTime);
+    double tempTime = ((int)totalTime + 140000) / 1000.0;
+
+    oceanDesc.update(tempTime);
 
     D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 0, 0, 0), L"Update surface");
-    surface.Update(totalTime, deltaTime);
+    surface.Update(tempTime, 0);
     D3DPERF_EndEvent();
+
+    //FUtil::Log("delta: %lf\n", tempTime);
+
 
     return S_OK;
 }
@@ -309,14 +315,14 @@ HRESULT TestProject::RenderScene()
         mImmediateContext->RSSetState( mRSOrdinary );
 
         cube.rotationEuler = XMFLOAT3( 0, totalTime * 0.0001f, 0 );
-        cube.position = XMFLOAT3(0, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+        cube.position = XMFLOAT3(0, waterHeight, 0);
+        //FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
-        cube.position = XMFLOAT3(3, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+        cube.position = XMFLOAT3(3, waterHeight, 0);
+        //FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
-        cube.position = XMFLOAT3(-3, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+        cube.position = XMFLOAT3(-3, waterHeight, 0);
+        //FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
         D3DPERF_EndEvent();
     }
@@ -410,7 +416,7 @@ HRESULT TestProject::RenderScene()
         mImmediateContext->PSSetShader(mPixelShaderWater, NULL, 0);
             
         cb.vMeshColor = XMFLOAT4(0, 1, 0, 1);
-        surface.position = XMFLOAT3(0, 0, 0);
+        surface.position = XMFLOAT3(0, waterHeight, 0);
 
         //add perlin vars
         // set perlin params
@@ -694,6 +700,7 @@ HRESULT TestProject::InitScene()
 
     surface.Init(mDevice, &oceanDesc);
     surface.setCamera(&mainCamera);
+    surface.position.y = waterHeight;
 
     // Define the input layout
     mLayoutPT = VertexFormatMgr::getPTLayout(mDevice);
@@ -762,10 +769,10 @@ HRESULT TestProject::InitScene()
 
     // init camera
     mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 1.0, 100.0);
-    mainCamera.setOrbitParams( 15, XMFLOAT3(0,0,0) );
+    mainCamera.setOrbitParams( 15, XMFLOAT3(0,waterHeight,0) );
 
     observeCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.01, 1000.0);
-    observeCamera.setOrbitParams( 25, XMFLOAT3(0,0,0) );
+    observeCamera.setOrbitParams(25, XMFLOAT3(0, waterHeight, 0));
 
 
     // add rasterizing states

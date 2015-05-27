@@ -322,6 +322,8 @@ float4 PS_WAT(PS_INPUT_WAT input) : SV_Target
     float blendFactor = (PATCH_BLEND_END - dist2d) / (PATCH_BLEND_END - PATCH_BLEND_BEGIN);
     blendFactor = saturate(blendFactor * blendFactor * blendFactor);
 
+    blendFactor = 1;
+
     // get perlin noise    
     float2 perlin_tc = input.Tex * PerlinSize;
     float2 perlin_tc0 = (blendFactor < 1) ? perlin_tc * PerlinOctave.x - PerlinMovement : 0;
@@ -337,12 +339,16 @@ float4 PS_WAT(PS_INPUT_WAT input) : SV_Target
     ripple = lerp(perlin, ripple, blendFactor);
     float3 normal = normalize(float3(ripple.x, 6.812, ripple.y));
 
+    return float4(ripple.xy, 0, 1);
+
     //procedural
     //normal = normalize(cross(ddx(input.PosWS), ddy(input.PosWS)));
 
     float3 vReflect = reflect(-vEyeRay, normal);
 
     float dotNV = saturate(dot(normal, vEyeRay));
+
+    return float4(dotNV.xxx, 1);
 
     float4 ramp = txFresnel.Sample(samLinear, dotNV).xyzw; // ramp.x for fresnel term. ramp.y for sky blending
 

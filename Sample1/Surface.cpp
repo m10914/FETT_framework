@@ -13,7 +13,7 @@
 void OceanDescription::update(double appTime)
 {
     // update perlin_move
-    float mul = (float)appTime * 0.001 * PerlinSpeed;
+    float mul = (float)appTime * PerlinSpeed;
     this->PerlinMove = XMFLOAT2(mul*wind_dir.x, -mul*wind_dir.y);
 }
 
@@ -135,7 +135,7 @@ XMVECTOR FSurface::calcWorldPosOfCorner(XMFLOAT2 uv, XMMATRIX* matrix)
 
 void FSurface::Update(double appTime, double deltaTime)
 {
-    mOceanSimulator->updateDisplacementMap((float)appTime/1000.0);
+    mOceanSimulator->updateDisplacementMap((float)appTime);
 }
 
 bool FSurface::fillConstantBuffer(CBForCS& buffrer, double appTime)
@@ -168,7 +168,7 @@ bool FSurface::fillConstantBuffer(CBForCS& buffrer, double appTime)
 
         // set world to zero
 
-        XMMATRIX mat = XMMatrixTranslation(0, 0, 0);
+        XMMATRIX mat = XMMatrixTranslation(position.x, position.y, position.z);
         buffrer.worldMatrix = XMMatrixTranspose(mat);
 
         // set perlin params
@@ -189,10 +189,18 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
     //------------------------
     // get displacement zone
 
-    static float amplitude = 0.5f;
-    static XMVECTOR normal = XMVectorSet(0, 1, 0, 1);
+    static float amplitude = 0.5f;// .5f;
+    static float paramElevation = 1.0f;
+    static XMVECTOR normal = XMVectorSet(0, 1, 0, 0);
 
-    XMVECTOR curPos = XMVectorSet( position.x, position.y, position.z, 1);
+    XMVECTOR camPos = mCamera->getEye() -XMVectorSet(0, position.y, 0, 0);
+    XMVECTOR camDir = mCamera->getForwardVector();
+    XMVECTOR camAt = mCamera->getTarget() -XMVectorSet(0, position.y, 0, 0);
+    XMMATRIX camView = XMMatrixLookAtLH(camPos, camAt, XMVectorSet(0, 1, 0, 1));
+    XMMATRIX camProj = mCamera->getProjMatrix();
+
+
+    XMVECTOR curPos = XMVectorSet( 0, 0, 0, 1);
     XMVECTOR upper = curPos + normal * XMVectorSet(amplitude, amplitude, amplitude, 1);   
     XMVECTOR lower = curPos - normal * XMVectorSet(amplitude, amplitude, amplitude, 1); 
 
@@ -214,7 +222,7 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
     //get inv_view_proj
     XMVECTOR determinant;
     
-    XMMATRIX viewProjInverted = mCamera->getViewMatrix() * mCamera->getProjMatrix();
+    XMMATRIX viewProjInverted = camView * camProj;
         
     viewProjInverted = XMMatrixInverse( &determinant, viewProjInverted );
     
@@ -271,9 +279,8 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
 
 
     XMMATRIX projCamView, projCamProj;
-    XMVECTOR projCamPos = mCamera->getEye();
-    XMVECTOR camFwd = mCamera->getForwardVector();
-    static float paramElevation = 1.0f;
+    XMVECTOR projCamPos = camPos;
+    XMVECTOR camFwd = camDir;
 
     // create project camera
     float height_in_plane = ( lowerPlane.m128_f32[0]*projCamPos.m128_f32[0] +
@@ -294,10 +301,10 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
         // aim the projector at the point where the camera view-vector intersects the plane
         // if the camera is aimed away from the plane, mirror it's view-vector against the plane
         if( (XMPlaneDotNormal(plane, camFwd).m128_f32[0] < 0.0f) ^  
-            (XMPlaneDotCoord(plane, mCamera->getEye()).m128_f32[0] < 0.0f)
+            (XMPlaneDotCoord(plane, camPos).m128_f32[0] < 0.0f)
             )
         {
-            aimpoint = XMPlaneIntersectLine( plane, mCamera->getEye(), mCamera->getTarget() );
+            aimpoint = XMPlaneIntersectLine( plane, camPos, camAt );
             if(XMVectorIsNaN(aimpoint).m128_f32[0] != 0)
                 aimpoint = XMVectorSet(0,0,0,0); //parallel
         }
@@ -305,7 +312,7 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
         {
             //flipped = rendering_camera->forward - 2*normal*D3DXVec3Dot(&(rendering_camera->forward),&normal);
             XMVECTOR flipped = camFwd - 2 * normal * XMVector3Dot(camFwd, normal);
-            aimpoint = XMPlaneIntersectLine( plane, mCamera->getEye(), mCamera->getEye() + flipped );
+            aimpoint = XMPlaneIntersectLine( plane, camPos, camPos + flipped );
             if(XMVectorIsNaN(aimpoint).m128_f32[0] != 0)
                 aimpoint = XMVectorSet(0,0,0,0); //parallel
         }
@@ -317,19 +324,22 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
         
         //aimpoint2 = (rendering_camera->position + 10.0f * rendering_camera->forward);
         //aimpoint2 = aimpoint2 - normal*D3DXVec3Dot(&aimpoint2,&normal);
-        aimpoint2 = mCamera->getEye() + 10.0f * camFwd;
-        aimpoint2 = aimpoint2 - normal * XMVector3Dot( aimpoint2, normal );
+        aimpoint2 = camPos + 10.0f * camFwd;
+        aimpoint2 = aimpoint2 - normal * XMVector3Dot(aimpoint2, normal);
 
         // fade between aimpoint & aimpoint2 depending on view angle
 
-        aimpoint = aimpoint*af + aimpoint2*(1.0f-af);
+        aimpoint = aimpoint*af + aimpoint2*(1.0f - af);
         //aimpoint = aimpoint2;
 
         XMVECTOR projCamFwd = aimpoint - projCamPos;
 
         // attach proj cam view
-        projCamView = XMMatrixLookAtLH( projCamPos, projCamPos + projCamFwd, XMVectorSet(0,1,0,1) );
-        projCamProj = mCamera->getProjMatrix();
+        projCamView = XMMatrixLookAtLH(
+            projCamPos,
+            projCamPos + projCamFwd,
+            XMVectorSet(0,1,0,1) );
+        projCamProj = camProj;
 
         projectorWorldViewInverted = XMMatrixInverse( &determinant, projCamView * projCamProj );
     }
@@ -338,7 +348,8 @@ bool FSurface::getProjectedPointsMatrix(XMMATRIX& outMatrix)
     for(int i=0; i<n_points; i++)
     {
         // project the point onto the surface plane
-        proj_points[i] = proj_points[i] - normal*XMVector3Dot(proj_points[i], normal);
+        proj_points[i] = proj_points[i] -normal*XMVector3Dot(proj_points[i], normal);
+        //proj_points[i].m128_f32[1] = position.y;
         proj_points[i].m128_f32[3] = 1.0f;
     }
     
