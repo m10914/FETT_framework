@@ -99,10 +99,6 @@ float4 PS( PS_INPUT input ) : SV_Target
 
 
 
-
-
-
-
 /*
 ==============================================================
 RTW shader
@@ -144,26 +140,3 @@ float4 PS_RTW(PS_RTW_INPUT input) : SV_Target
 }
 
 
-
-/*
-==============================================================
-Quad shader
-
-
-==============================================================
-*/
-
-PS_INPUT VS_QUAD(VS_INPUT input)
-{
-    PS_INPUT output = (PS_INPUT)0;
-
-    output.Pos = float4(input.Pos.xy, 0, 1);
-    output.Tex = input.Tex;
-
-    return output;
-}
-
-float4 PS_QUAD(PS_INPUT input) : SV_Target
-{
-    return float4(txDiffuse.SampleLevel(samLinear, input.Tex, 0).xyz, 1);
-}

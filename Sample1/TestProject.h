@@ -32,6 +32,7 @@
 
 #include "FLightSource.h"
 #include "RenderTarget.h"
+#include "PassthruPostEffect.h"
 
 
 
@@ -66,13 +67,6 @@ private:
 	ID3D11VertexShader*                 mVertexShader = NULL;
 	ID3D11PixelShader*                  mPixelShader = NULL;
 
-    //quad rendering - plain
-	ID3D11VertexShader*                 mVertexShaderQuad = NULL;
-	ID3D11PixelShader*                  mPixelShaderQuad = NULL;
-
-    //pixel shader for deferred fullscreen pass
-    ID3D11PixelShader*                  mPixelShaderDeferred = NULL;
-
 
     //-----------------------------------------------------------
     // input layouts pointers
@@ -83,7 +77,6 @@ private:
     // shader constant buffers
 	ID3D11Buffer*                       mCBChangesEveryFrame = NULL;
     ID3D11Buffer*                       mCBforDeferredPass = NULL;
-
 
 	ID3D11ShaderResourceView*           mTextureRV = NULL;
 	ID3D11SamplerState*                 mSamplerLinear = NULL;
@@ -100,6 +93,10 @@ private:
 
     RenderTarget*                       mSecondRT = NULL;
 
+
+    //-------------------------------------------------------------------
+    // P O S T E F F E C T S
+    PassthruPostEffect* passthruPFX = NULL;
 
     //----------------------------------
 	// objects'n'stuff
@@ -143,14 +140,9 @@ protected:
     //debug rendering
     void _renderCamera(LPD3DDeviceContext context, LPD3D11Device device, XMMATRIX* invViewProjMatrix);
     void _renderPoints(LPD3DDeviceContext context, LPD3D11Device device, XMVECTOR* points, int numOfPoints);
-    void _renderQuad(LPD3DDeviceContext context, LPD3D11Device device, XMFLOAT2 offset, XMFLOAT2 relativeSize);
-
 
     // render stages
     void _renderSceneToGBuffer();
-    void _renderComputeWarpMaps();
-    void _renderShadowMaps();
-    void _renderDeferredShading();
 
     void _renderSceneObjects(bool bPlane = true, bool bCubes = true);
 

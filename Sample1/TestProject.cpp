@@ -175,35 +175,14 @@ HRESULT TestProject::RenderScene()
 	mImmediateContext->PSSetSamplers(0, 3, aSamplers);
 	mImmediateContext->VSSetSamplers(0, 3, aSamplers);
 
-
     // Render scene to 3 textures: color, normal, depth (auto)
     _renderSceneToGBuffer();
 
+    // TODO: change to rendertarget system
+    GFXCONTEXT->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
+    UpdateViewport(swapChainDesc);
 
-    // deferred post-effect: applying lighting to scene
-    _renderDeferredShading();
-
-
-    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-	// ADDITIONAL stuff for debug purpose:
-    {
-        mImmediateContext->IASetInputLayout( mLayoutPT );
-
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 1), L"Quads");
-
-        mImmediateContext->PSSetShader(mPixelShaderQuad, NULL, 0);
-        mImmediateContext->VSSetShader(mVertexShaderQuad, NULL, 0);
-
-
-        // FULLSCREEN QUAD
-        ID3D11ShaderResourceView* srviews[1] = { mSecondRT->getTextureSRV(0) };
-        mImmediateContext->PSSetShaderResources(0, 1, srviews);
-
-        _renderQuad(mImmediateContext, mDevice, XMFLOAT2(0.00, 0.00), XMFLOAT2(1, 1));
-
-
-        D3DPERF_EndEvent();
-    }
+    passthruPFX->render();
     
     // release some stuff
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
@@ -215,6 +194,9 @@ HRESULT TestProject::RenderScene()
 
 void TestProject::_renderSceneToGBuffer()
 {
+    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 0, 255, 0), L"G-Buffer");
+
+
     //--------------------------------------------------------------------
     // TO SECOND RT
 
@@ -227,8 +209,6 @@ void TestProject::_renderSceneToGBuffer()
         mDirLight.GetMVPMatrix(&cb.matMVPLight);
     }
 
-
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 0, 255, 0), L"RT render");
 
     UINT sref = 0;
 
@@ -261,73 +241,11 @@ void TestProject::_renderSceneToGBuffer()
     mImmediateContext->PSSetShaderResources(0, 1, rv);
     mImmediateContext->VSSetShaderResources(0, 1, rv);
 
-    D3DPERF_EndEvent();
-}
-
-
-
-void TestProject::_renderDeferredShading()
-{
-    UINT sref = 0;
-    float ClearColor[4] = { 0.525f, 0.525f, 0.525f, 1.0f }; // red, green, blue, alpha
-
-    mImmediateContext->RSSetState(mRSOrdinary);
-
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Deferred final pass");
-
-    mImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
-    mImmediateContext->ClearRenderTargetView(mRenderTargetView, ClearColor);
-    mImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
-    UpdateViewport(swapChainDesc);
-
-    if (false)
-    {
-        //build buffers first
-        {
-            XMVECTOR det;
-            XMMATRIX vmat = XMMatrixInverse(&det,
-                XMMatrixTranspose(mainCamera.getProjMatrix()) *
-                XMMatrixTranspose(mainCamera.getViewMatrix()));
-
-            mMemBufferForDeferredPass.matMVPInv = vmat;
-
-            mDirLight.GetMVPMatrix(&mMemBufferForDeferredPass.matMVPLight);
-
-            mImmediateContext->UpdateSubresource(mCBforDeferredPass, 0, NULL, &mMemBufferForDeferredPass, 0, 0);
-        }
-
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Deferred");
-
-        mImmediateContext->OMSetDepthStencilState(mDSFullscreenPass, sref);
-
-        // fullscreen quad
-        mImmediateContext->PSSetShader(mPixelShaderDeferred, NULL, 0);
-        mImmediateContext->VSSetShader(mVertexShaderQuad, NULL, 0);
-
-        ID3D11ShaderResourceView* srviews[2] = 
-        { 
-            mSecondRT->getTextureSRV(0), 
-            mSecondRT->getDepthStencilSRV() 
-        };
-        mImmediateContext->PSSetShaderResources(0, 2, srviews);
-
-        ID3D11Buffer* csbuffers[1] = { mCBforDeferredPass };
-        mImmediateContext->PSSetConstantBuffers(0, 1, csbuffers);
-
-        _renderQuad(mImmediateContext, mDevice, XMFLOAT2(0, 0), XMFLOAT2(1, 1));
-
-        srviews[0] = NULL;
-        srviews[1] = NULL;
-        srviews[2] = NULL;
-        srviews[3] = NULL;
-        mImmediateContext->PSSetShaderResources(0, 4, srviews);
-
-
-        D3DPERF_EndEvent();
-    }
+    mSecondRT->deactivate();
 
     D3DPERF_EndEvent();
 }
+
 
 
 
@@ -471,58 +389,6 @@ render_points_end:
     return;
 }
 
-void TestProject::_renderQuad(LPD3DDeviceContext context, LPD3D11Device device, XMFLOAT2 offset, XMFLOAT2 relSize)
-{
-    //assemble points
-    ID3D11Buffer* mVertexBuffer = NULL;
-
-    //create buffers
-    HRESULT hr;
-
-
-    VertexFormatPT vertices[] =
-    {
-        { XMFLOAT3(2.0*offset.x - 1.0, 2.0*(offset.y + relSize.y) - 1.0, 0), XMFLOAT2(0, 0) },
-        { XMFLOAT3(2.0*(offset.x + relSize.x) - 1.0, 2.0*(offset.y + relSize.y) - 1.0, 0), XMFLOAT2(1, 0) },
-        { XMFLOAT3(2.0*offset.x-1.0, 2.0*offset.y-1.0, 0), XMFLOAT2(0, 1) },      
-        { XMFLOAT3(2.0*(offset.x + relSize.x)-1.0, 2.0*offset.y-1.0, 0), XMFLOAT2(1, 1) },
-
-        /*{ XMFLOAT3(offset.x, offset.y, 0), XMFLOAT2(0, 0) },    
-        { XMFLOAT3(offset.x + relSize.x, offset.y + relSize.y, 0), XMFLOAT2(1, 1) },*/
-    };
-
-    D3D11_SUBRESOURCE_DATA InitData;
-    ZeroMemory(&InitData, sizeof(InitData));
-
-    D3D11_BUFFER_DESC bd;
-    ZeroMemory(&bd, sizeof(bd));
-    bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof(vertices);
-    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    bd.CPUAccessFlags = 0;
-
-    InitData.pSysMem = vertices;
-    hr = device->CreateBuffer(&bd, &InitData, &mVertexBuffer);
-    if (FAILED(hr))
-        goto render_quad_end;
-
-    // Set vertex buffer
-    UINT stride = sizeof(VertexFormatPT);
-    UINT loffset = 0;
-    context->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &loffset);
-
-    // Set primitive topology
-    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
-    // draw dat shit
-    context->Draw(4, 0);
-
-
-render_quad_end:
-    SAFE_RELEASE(mVertexBuffer);
-    return;
-}
-
 
 /*
 ===========================================================================
@@ -541,14 +407,18 @@ HRESULT TestProject::InitScene()
     mSecondRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
 
 
+    //posteffects
+    passthruPFX = new PassthruPostEffect();
+
+
 	// create objects
 	cube.Init(mDevice);
 	plane.Init(mDevice);
 
 
     // Define the input layout
-    mLayoutPT = VertexFormatMgr::getPTLayout(mDevice);
-    mLayoutPNT = VertexFormatMgr::getPNTLayout(mDevice);
+    mLayoutPT = VertexFormatMgr::getPTLayout();
+    mLayoutPNT = VertexFormatMgr::getPNTLayout();
 
 
 	//----------------------------------------------------------------------------
@@ -558,15 +428,11 @@ HRESULT TestProject::InitScene()
 	ID3DBlob* pVSBlob = NULL;
     
     FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShader);
-    FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS_QUAD", "vs_4_0", &pVSBlob, &mVertexShaderQuad);
-
+    
     ID3DBlob* pPSBlob = NULL;
 
     FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShader);
-	FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS_QUAD", "ps_4_0", &pPSBlob, &mPixelShaderQuad);
-    FUtil::InitPixelShader(mDevice, "Deferred.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShaderDeferred);
-
-
+	
 
 	//----------------------------------------------------------------------------
 	// Create the constant buffers
@@ -703,9 +569,6 @@ HRESULT TestProject::ReleaseScene()
 	SAFE_RELEASE(mVertexShader);
 	SAFE_RELEASE(mPixelShader);
 
-    SAFE_RELEASE(mVertexShaderQuad);
-    SAFE_RELEASE(mPixelShaderQuad);
-
 	SAFE_RELEASE(mCBChangesEveryFrame);
 	SAFE_RELEASE(mTextureRV);
 	SAFE_RELEASE(mSamplerLinear);
@@ -717,6 +580,8 @@ HRESULT TestProject::ReleaseScene()
 	SAFE_RELEASE(mDSFullscreenPass);
 
     SAFE_DELETE(mSecondRT);
+    SAFE_DELETE(passthruPFX);
+
 
 	return S_OK;
 }

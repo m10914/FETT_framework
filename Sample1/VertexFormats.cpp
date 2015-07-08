@@ -12,7 +12,7 @@ ID3D11InputLayout* VertexFormatMgr::mPNTLayout(NULL);
 
 
 //static
-ID3D11InputLayout* VertexFormatMgr::getPTLayout(LPD3D11Device device)
+ID3D11InputLayout* VertexFormatMgr::getPTLayout()
 {
     HRESULT hr;
 
@@ -29,7 +29,7 @@ ID3D11InputLayout* VertexFormatMgr::getPTLayout(LPD3D11Device device)
         UINT numElements = ARRAYSIZE( layout );
 
         // Create the input layout
-        hr = device->CreateInputLayout( layout, numElements, pVSBlob->GetBufferPointer(),
+        hr = GFXDEVICE->CreateInputLayout( layout, numElements, pVSBlob->GetBufferPointer(),
             pVSBlob->GetBufferSize(), &mPTLayout );
 
         pVSBlob->Release();
@@ -41,7 +41,7 @@ ID3D11InputLayout* VertexFormatMgr::getPTLayout(LPD3D11Device device)
 
 
 //static
-ID3D11InputLayout* VertexFormatMgr::getPNTLayout(LPD3D11Device device)
+ID3D11InputLayout* VertexFormatMgr::getPNTLayout()
 {
     HRESULT hr;
 
@@ -59,7 +59,7 @@ ID3D11InputLayout* VertexFormatMgr::getPNTLayout(LPD3D11Device device)
         UINT numElements = ARRAYSIZE( layout );
 
         // Create the input layout
-        hr = device->CreateInputLayout( layout, numElements, pVSBlob->GetBufferPointer(),
+        hr = GFXDEVICE->CreateInputLayout( layout, numElements, pVSBlob->GetBufferPointer(),
             pVSBlob->GetBufferSize(), &mPNTLayout );
 
         pVSBlob->Release();

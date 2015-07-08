@@ -400,6 +400,8 @@
     <ClCompile Include="FUtil.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MathHelper.cpp" />
+    <ClCompile Include="PassthruPostEffect.cpp" />
+    <ClCompile Include="PostEffect.cpp" />
     <ClCompile Include="RenderTarget.cpp" />
     <ClCompile Include="TestProject.cpp" />
     <ClCompile Include="VertexFormats.cpp" />
@@ -418,6 +420,7 @@
     <ClInclude Include="FPrimitive.h" />
     <ClInclude Include="FUtil.h" />
     <ClInclude Include="MathHelper.h" />
+    <ClInclude Include="PassthruPostEffect.h" />
     <ClInclude Include="PostEffect.h" />
     <ClInclude Include="RenderTarget.h" />
     <ClInclude Include="TestProject.h" />
@@ -427,6 +430,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Deferred.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="FettEssential.fx">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

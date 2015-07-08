@@ -40,8 +40,8 @@ protected:
 
 public:
 
-    static ID3D11InputLayout* getPTLayout(ID3D11Device* device);
-    static ID3D11InputLayout* getPNTLayout(ID3D11Device* device);
+    static ID3D11InputLayout* getPTLayout();
+    static ID3D11InputLayout* getPNTLayout();
 
 
 

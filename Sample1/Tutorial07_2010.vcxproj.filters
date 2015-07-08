@@ -72,6 +72,12 @@
     <ClCompile Include="RenderTarget.cpp">
       <Filter>FW\PostEffect</Filter>
     </ClCompile>
+    <ClCompile Include="PostEffect.cpp">
+      <Filter>FW\PostEffect</Filter>
+    </ClCompile>
+    <ClCompile Include="PassthruPostEffect.cpp">
+      <Filter>TestProject</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CLInclude Include="resource.h">
@@ -122,6 +128,9 @@
     <ClInclude Include="RenderTarget.h">
       <Filter>FW\PostEffect</Filter>
     </ClInclude>
+    <ClInclude Include="PassthruPostEffect.h">
+      <Filter>TestProject</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="TestProjectShader.fx">
@@ -135,5 +144,10 @@
     <Text Include="VertexFormatsInitializer.fx">
       <Filter>FW\VertexFormat</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="FettEssential.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
