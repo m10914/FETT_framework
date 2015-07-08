@@ -9,12 +9,9 @@
 // Constant Buffer Variables
 //--------------------------------------------------------------------------------------
 
-#define WIDTH 1024
-
 
 Texture2D txDiffuse : register( t0 );
-StructuredBuffer<float2> warpMaps : register( t1 );
-Texture2D txShadowMap : register( t2 );
+
 
 SamplerState samLinear : register( s0 );
 SamplerState samBackbuffer : register( s1 );
@@ -80,94 +77,17 @@ struct HS_CONTROL_POINT_OUTPUT
 //-----------------------------------------------------------------------------
 // V E R T E X
 
-HS_INPUT VS(VS_INPUT input)
-//PS_INPUT VS(VS_INPUT input)
+PS_INPUT VS(VS_INPUT input)
 {
-    HS_INPUT output = (HS_INPUT)0;
-
-    float4 wpos = input.Pos;
-    wpos = mul(wpos, World);
-    wpos = mul(wpos, View);
-    output.vPosWS = wpos;
-
-    output.vTexCoord = input.Tex;
-
-    /*PS_INPUT output = (PS_INPUT)0;
+    PS_INPUT output = (PS_INPUT)0;
 
     output.Pos = mul(input.Pos, World);
     output.Pos = mul(output.Pos, View);
     output.Pos = mul(output.Pos, Projection);
-    output.Tex = input.Tex;*/
+    output.Tex = input.Tex;
 
     return output;
 }
-
-
-//-----------------------------------------------------------------------------
-// H U L L
-
-HS_OUTPUT HS_Ord(InputPatch<HS_INPUT, 3> p, uint PatchID : SV_PrimitiveID)
-{
-    HS_OUTPUT Out;
-
-    Out.Edges[0] = 2;
-    Out.Edges[1] = 2;
-    Out.Edges[2] = 2;
-
-    Out.Inside = 3;
-
-    return Out;
-}
-
-
-[domain("tri")]
-[partitioning("fractional_odd")]
-[outputtopology("triangle_cw")]
-[outputcontrolpoints(3)]
-[patchconstantfunc("HS_Ord")]
-[maxtessfactor(64.0)]
-HS_CONTROL_POINT_OUTPUT HS(
-    InputPatch<HS_INPUT, 3> inputPatch,
-    uint uCPID : SV_OutputControlPointID)
-{
-    HS_CONTROL_POINT_OUTPUT Out;
-
-    // Copy inputs to outputs
-    Out.vWorldPos = inputPatch[uCPID].vPosWS.xyz;
-    Out.vTexCoord = inputPatch[uCPID].vTexCoord;
-
-    return Out;
-}
-
-//-----------------------------------------------------------------------------
-// D O M A I N
-
-[domain("tri")]
-PS_INPUT DS(
-    HS_OUTPUT input,
-    float3 BarycentricCoordinates : SV_DomainLocation,
-    const OutputPatch<HS_CONTROL_POINT_OUTPUT, 3> TrianglePatch)
-{
-    PS_INPUT Out;
-
-    //interpolate stuff
-    float3 vWorldPos = 
-        BarycentricCoordinates.x * TrianglePatch[0].vWorldPos +
-        BarycentricCoordinates.y * TrianglePatch[1].vWorldPos +
-        BarycentricCoordinates.z * TrianglePatch[2].vWorldPos;
-    float2 vTexCoord = 
-        BarycentricCoordinates.x * TrianglePatch[0].vTexCoord +
-        BarycentricCoordinates.y * TrianglePatch[1].vTexCoord +
-        BarycentricCoordinates.z * TrianglePatch[2].vTexCoord;
-
-    Out.Pos = mul(vWorldPos, Projection);
-    Out.Tex = vTexCoord;
-
-    return Out;
-}
-
-//-----------------------------------------------------------------------------
-
 
 float4 PS( PS_INPUT input ) : SV_Target
 {
@@ -211,16 +131,6 @@ PS_RTW_INPUT VS_RTW(VS_RTW_INPUT input)
 {
     PS_RTW_INPUT output = (PS_RTW_INPUT)0;
     output.Pos = mul(input.Pos, mvp);
-    output.Pos /= output.Pos.w;
-
-    // warping
-    float2 indexS = mad(output.Pos.xy, 0.5, 0.5) * WIDTH;
-    float2 warps = float2(
-        lerp(warpMaps[floor(indexS.x)].y, warpMaps[floor(indexS.x) + 1].y, frac(indexS.x)),
-        lerp(warpMaps[floor(indexS.y)].x, warpMaps[floor(indexS.y) + 1].x, frac(indexS.y))
-        );
-    output.Pos.xy += warps * 1.5;
-    output.Warp = warps;
 
     output.Tex = input.Tex;
 

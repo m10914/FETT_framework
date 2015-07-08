@@ -70,6 +70,9 @@ class DXApp;
 
 DXApp* initApplication(); //custom entry point
 
+#define GFXDEVICE DXApp::GetDevice()
+#define GFXCONTEXT DXApp::GetContext()
+
 
 class DXApp
 {
@@ -82,6 +85,11 @@ public:
 	HRESULT Render();
 	HRESULT Release();
     HRESULT PreRender();
+
+    // static functional
+    static ID3D11Device* GetDevice() { if (!Instance) return NULL; return Instance->mDevice; };
+    static ID3D11DeviceContext* GetContext() { if (!Instance) return NULL; return Instance->mImmediateContext; };
+    static DXApp* Instance;
 
 protected:
 

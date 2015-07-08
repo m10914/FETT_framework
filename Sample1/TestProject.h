@@ -31,6 +31,7 @@
 #include "d3d9.h" //for d3dperf stuff only!
 
 #include "FLightSource.h"
+#include "RenderTarget.h"
 
 
 
@@ -46,18 +47,12 @@ struct __declspec(align(16)) CBChangesEveryFrame : CBMatrixSet
 	XMFLOAT4 vMeshColor;
 };
 
-
-struct __declspec(align(16)) CBforCSReprojection
-{
-	XMMATRIX matMVPInv;
-	XMMATRIX matMVPLight;
-};
-
 struct __declspec(align(16)) CBforDeferredPass
 {
     XMMATRIX matMVPLight;
     XMMATRIX matMVPInv;
 };
+
 
 
 class __declspec(align(16)) TestProject : public DXApp
@@ -66,17 +61,16 @@ private:
 
     //-----------------------------------------------------------
     // shaders
+
+    //ordinary scene rendering
 	ID3D11VertexShader*                 mVertexShader = NULL;
 	ID3D11PixelShader*                  mPixelShader = NULL;
-    ID3D11HullShader*                   mHullShader = NULL;
-    ID3D11DomainShader*                 mDomainShader = NULL;
 
+    //quad rendering - plain
 	ID3D11VertexShader*                 mVertexShaderQuad = NULL;
 	ID3D11PixelShader*                  mPixelShaderQuad = NULL;
 
-    //special shaders
-    ID3D11VertexShader*                 mVertexShaderRTW = NULL;
-    ID3D11PixelShader*                  mPixelShaderRTW = NULL;
+    //pixel shader for deferred fullscreen pass
     ID3D11PixelShader*                  mPixelShaderDeferred = NULL;
 
 
@@ -88,7 +82,6 @@ private:
 
     // shader constant buffers
 	ID3D11Buffer*                       mCBChangesEveryFrame = NULL;
-	ID3D11Buffer*                       mCBforCS = NULL;
     ID3D11Buffer*                       mCBforDeferredPass = NULL;
 
 
@@ -105,59 +98,10 @@ private:
 	ID3D11DepthStencilState*			mDSOrdinary = NULL;
 	ID3D11DepthStencilState*			mDSFullscreenPass = NULL;
 
-    // compute
-	ID3D11ComputeShader*                mComputeShaderReprojection = NULL;
-    ID3D11ComputeShader*				mComputeShaderImportance = NULL;
-    ID3D11ComputeShader*				mComputeShaderWarp = NULL;
-    ID3D11ComputeShader*                mComputeShaderBlurWarp = NULL;
+    RenderTarget*                       mSecondRT = NULL;
 
 
-	// alternative render target
-	ID3D11Texture2D*					mRTSecondTex = NULL;
-	ID3D11ShaderResourceView*			mRTSecondSRV = NULL;
-	ID3D11RenderTargetView*				mRTSecondRTV = NULL;
-	ID3D11Texture2D*					mDSSecondTex = NULL;
-	ID3D11ShaderResourceView*			mDSSecondSRV = NULL;
-	ID3D11DepthStencilView*				mDSSecondDSV = NULL;
-
-
-	// RT for shadow map
-	ID3D11Texture2D*					mShadowMapTexture = NULL;
-	ID3D11ShaderResourceView*			mShadowMapSRV = NULL;
-	ID3D11DepthStencilView*				mShadowMapDSV = NULL;
-	
-    //>>>>>> unnecessary - for debug purpose only
-    ID3D11Texture2D*                    mSMTempVis = NULL;
-    ID3D11ShaderResourceView*           mSMTempVisSRV = NULL;
-    ID3D11RenderTargetView*             mSMTempVisRTV = NULL;
-
-
-	// a couple of textures for importance map
-	ID3D11Buffer*						mReprojectionBuffer = NULL;
-	ID3D11ShaderResourceView*			mReprojectionSRV = NULL;
-	ID3D11UnorderedAccessView*			mReprojectionUAV = NULL;
-
-
-    // swapchain for warp buffers
-    ID3D11Buffer*						mWarpBuffer[2];
-    ID3D11ShaderResourceView*			mWarpBufferSRV[2];
-    ID3D11UnorderedAccessView*			mWarpBufferUAV[2];
-
-
-	// stuff for visualizing - DEBUG purpose only
-	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-	
-	ID3D11Buffer*						mReprojectionTransferBuffer = NULL;
-	ID3D11Texture2D*					mReprojectionVisualTexture = NULL;
-	ID3D11ShaderResourceView*			mReprojectionVisualSRV = NULL;
-
-	ID3D11VertexShader*                 mVertexShaderBufferVis = NULL;
-	ID3D11PixelShader*                  mPixelShaderBufferVis = NULL;
-
-	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-
-	//----------------------------------
+    //----------------------------------
 	// objects'n'stuff
 	
     XMFLOAT4 mVMeshColor;
@@ -181,7 +125,6 @@ private:
 
 	// constant buffers
     CBChangesEveryFrame cb;
-	CBforCSReprojection	mMemBufferForCSReprojection;
     CBforDeferredPass mMemBufferForDeferredPass;
 
 public:
@@ -197,8 +140,6 @@ public:
 
 protected:
 
-	HRESULT PrepareRT();
-    
     //debug rendering
     void _renderCamera(LPD3DDeviceContext context, LPD3D11Device device, XMMATRIX* invViewProjMatrix);
     void _renderPoints(LPD3DDeviceContext context, LPD3D11Device device, XMVECTOR* points, int numOfPoints);

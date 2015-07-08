@@ -27,6 +27,9 @@
     <Filter Include="FW\lighting">
       <UniqueIdentifier>{c6e2f8ed-69be-4f86-86d5-e1dc865c9a7e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="FW\PostEffect">
+      <UniqueIdentifier>{ed35f644-168a-40e6-8318-6a15782ddd4e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dxapp.cpp">
@@ -65,6 +68,9 @@
     </ClCompile>
     <ClCompile Include="FPGridCube.cpp">
       <Filter>FW\primitives</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderTarget.cpp">
+      <Filter>FW\PostEffect</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -110,24 +116,15 @@
     <ClInclude Include="FPGridCube.h">
       <Filter>FW\primitives</Filter>
     </ClInclude>
+    <ClInclude Include="PostEffect.h">
+      <Filter>FW\PostEffect</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderTarget.h">
+      <Filter>FW\PostEffect</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="ProjectedGrid.hlsl">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="TestProjectShader.fx">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Reprojection.hlsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Importance.hlsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="BufferVisualizer.fx">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="WarpCalculator.hlsl">
       <Filter>Shaders</Filter>
     </None>
     <None Include="Deferred.fx">
