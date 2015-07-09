@@ -30,6 +30,12 @@
     <Filter Include="FW\PostEffect">
       <UniqueIdentifier>{ed35f644-168a-40e6-8318-6a15782ddd4e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TestProject\PostEffects">
+      <UniqueIdentifier>{a31f8768-b776-42cd-bd6d-5ee512699a49}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TestProject\PostEffects\HBAO">
+      <UniqueIdentifier>{be1afca2-d431-47f1-9452-7753abc92616}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dxapp.cpp">
@@ -76,7 +82,10 @@
       <Filter>FW\PostEffect</Filter>
     </ClCompile>
     <ClCompile Include="PassthruPostEffect.cpp">
-      <Filter>TestProject</Filter>
+      <Filter>FW\PostEffect</Filter>
+    </ClCompile>
+    <ClCompile Include="HBAOPostEffect.cpp">
+      <Filter>TestProject\PostEffects\HBAO</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -129,7 +138,10 @@
       <Filter>FW\PostEffect</Filter>
     </ClInclude>
     <ClInclude Include="PassthruPostEffect.h">
-      <Filter>TestProject</Filter>
+      <Filter>FW\PostEffect</Filter>
+    </ClInclude>
+    <ClInclude Include="HBAOPostEffect.h">
+      <Filter>TestProject\PostEffects\HBAO</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -139,15 +151,16 @@
     <None Include="Deferred.fx">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="FettEssential.fx">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="HBAO.fx">
+      <Filter>TestProject\PostEffects\HBAO</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="VertexFormatsInitializer.fx">
       <Filter>FW\VertexFormat</Filter>
     </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="FettEssential.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
   </ItemGroup>
 </Project>

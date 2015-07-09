@@ -70,8 +70,11 @@ class DXApp;
 
 DXApp* initApplication(); //custom entry point
 
+
+// some defines for easy access
 #define GFXDEVICE DXApp::GetDevice()
 #define GFXCONTEXT DXApp::GetContext()
+#define GFX DXApp::Instance
 
 
 class DXApp
@@ -90,6 +93,8 @@ public:
     static ID3D11Device* GetDevice() { if (!Instance) return NULL; return Instance->mDevice; };
     static ID3D11DeviceContext* GetContext() { if (!Instance) return NULL; return Instance->mImmediateContext; };
     static DXApp* Instance;
+
+    XMFLOAT2 getRenderTargetSize() { return XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height); }
 
 protected:
 

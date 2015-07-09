@@ -23,13 +23,22 @@ ID3D11VertexShader* PostEffect::getQuadVertexShader()
 
 
 
-PostEffect::PostEffect(LPCSTR pixShader, LPCSTR entryPoint)
+PostEffect::PostEffect(
+    LPCSTR pixShader, LPCSTR entryPoint,
+    LPCSTR vertShader, LPCSTR vertEntryPoint)
 {
     strcpy(pixShaderName, pixShader);
     strcpy(this->entryPoint, entryPoint);
 
-    ID3DBlob* pPSBlob = NULL;
-    FUtil::InitPixelShader(GFXDEVICE, pixShaderName, entryPoint, "ps_5_0", &pPSBlob, &mPixelShader);
+    ID3DBlob* pBlob = NULL;
+    FUtil::InitPixelShader(GFXDEVICE, pixShaderName, entryPoint, "ps_5_0", &pBlob, &mPixelShader);
+
+    if (vertShader != NULL)
+    {
+        FUtil::InitVertexShader(GFXDEVICE, (char*)vertShader, vertEntryPoint, "vs_5_0", &pBlob, &mVertexShader);
+    }
+    else
+        mVertexShader = getQuadVertexShader();
 
     mLayoutPT = VertexFormatMgr::getPTLayout();
 };
@@ -49,7 +58,7 @@ void PostEffect::render()
     GFXCONTEXT->IASetInputLayout(mLayoutPT);
 
     GFXCONTEXT->PSSetShader(mPixelShader, NULL, 0);
-    GFXCONTEXT->VSSetShader(getQuadVertexShader(), NULL, 0);
+    GFXCONTEXT->VSSetShader(mVertexShader, NULL, 0);
 
     renderQuad();
 

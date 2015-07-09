@@ -398,6 +398,7 @@
     <ClCompile Include="FPPlane.cpp" />
     <ClCompile Include="FPrimitive.cpp" />
     <ClCompile Include="FUtil.cpp" />
+    <ClCompile Include="HBAOPostEffect.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MathHelper.cpp" />
     <ClCompile Include="PassthruPostEffect.cpp" />
@@ -419,6 +420,7 @@
     <ClInclude Include="FPPlane.h" />
     <ClInclude Include="FPrimitive.h" />
     <ClInclude Include="FUtil.h" />
+    <ClInclude Include="HBAOPostEffect.h" />
     <ClInclude Include="MathHelper.h" />
     <ClInclude Include="PassthruPostEffect.h" />
     <ClInclude Include="PostEffect.h" />
@@ -435,6 +437,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="FettEssential.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="HBAO.fx">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

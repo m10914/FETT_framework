@@ -31,8 +31,11 @@
 #include "d3d9.h" //for d3dperf stuff only!
 
 #include "FLightSource.h"
+
 #include "RenderTarget.h"
+
 #include "PassthruPostEffect.h"
+#include "HBAOPostEffect.h"
 
 
 
@@ -96,7 +99,8 @@ private:
 
     //-------------------------------------------------------------------
     // P O S T E F F E C T S
-    PassthruPostEffect* passthruPFX = NULL;
+    PassthruPostEffect*         passthruPFX = NULL;
+    HBAOPostEffect*             hbaoPFX = NULL;
 
     //----------------------------------
 	// objects'n'stuff

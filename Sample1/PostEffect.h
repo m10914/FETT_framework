@@ -12,7 +12,7 @@ class PostEffect
 {
 public:
 
-    PostEffect(LPCSTR pixShader, LPCSTR entryPoint);
+    PostEffect(LPCSTR pixShader, LPCSTR entryPoint, LPCSTR vertShader = NULL, LPCSTR vertEntryPoint = NULL);
     ~PostEffect();
 
     // virtual methods
@@ -26,7 +26,8 @@ public:
 protected:
 
     ID3D11PixelShader*                  mPixelShader = NULL;
-    
+    ID3D11VertexShader*                 mVertexShader = NULL;
+
     static ID3D11VertexShader*          mVertexShaderQuad;
     static ID3D11InputLayout*           mLayoutPT;
 

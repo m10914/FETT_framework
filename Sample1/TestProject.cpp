@@ -183,7 +183,9 @@ HRESULT TestProject::RenderScene()
     UpdateViewport(swapChainDesc);
 
     passthruPFX->render();
-    
+    hbaoPFX->render();
+
+
     // release some stuff
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
 	mImmediateContext->PSSetShaderResources( 0, 3, view );
@@ -409,7 +411,7 @@ HRESULT TestProject::InitScene()
 
     //posteffects
     passthruPFX = new PassthruPostEffect();
-
+    hbaoPFX = new HBAOPostEffect();
 
 	// create objects
 	cube.Init(mDevice);
