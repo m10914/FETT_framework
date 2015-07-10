@@ -65,11 +65,31 @@ ID3D11ShaderResourceView* RenderTarget::getTextureSRV(UINT index)
 
     return NULL;
 }
+
 ID3D11ShaderResourceView* RenderTarget::getDepthStencilSRV()
 {
     return mDSSecondSRV;
 }
 
+ID3D11UnorderedAccessView* RenderTarget::getTextureUAV(UINT index)
+{
+    if (textures.size() <= index)
+        return NULL;
+
+    auto tex = textures[index];
+    if (tex.mRTSecondUAV == NULL)
+    {
+        HRESULT hr;
+        hr = GFXDEVICE->CreateUnorderedAccessView(tex.mRTSecondTex, NULL, &tex.mRTSecondUAV);
+        if (FAILED(hr))
+        {
+            FUtil::Log("Failed to create unordered access view for render target.");
+            return NULL;
+        }
+    }
+
+    return tex.mRTSecondUAV;
+}
 
 
 void RenderTarget::activate()
@@ -121,7 +141,7 @@ void RenderTarget::appendTexture(UINT index, DXGI_FORMAT fmt)
     D3D11_TEXTURE2D_DESC Desc;
     ZeroMemory(&Desc, sizeof(D3D11_TEXTURE2D_DESC));
     Desc.ArraySize = 1;
-    Desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    Desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
     Desc.Usage = D3D11_USAGE_DEFAULT;
     Desc.Format = fmt;
     Desc.Width = (UINT)size.x;

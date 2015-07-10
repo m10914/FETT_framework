@@ -16,6 +16,7 @@ struct _RTTex
     ID3D11Texture2D*					mRTSecondTex = NULL;
     ID3D11ShaderResourceView*			mRTSecondSRV = NULL;
     ID3D11RenderTargetView*				mRTSecondRTV = NULL;
+    ID3D11UnorderedAccessView*          mRTSecondUAV = NULL;
 };
 
 
@@ -32,6 +33,7 @@ public:
     void appendDepthStencil(DXGI_FORMAT fmt);
     
     ID3D11ShaderResourceView* getTextureSRV(UINT index);
+    ID3D11UnorderedAccessView* getTextureUAV(UINT index);
     ID3D11ShaderResourceView* getDepthStencilSRV();
 
     void activate();

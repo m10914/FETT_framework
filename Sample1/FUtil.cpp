@@ -75,11 +75,12 @@ HRESULT FUtil::CompileShaderFromFile( char* szFileName, LPCSTR szEntryPoint, LPC
 }
 
 
-HRESULT FUtil::InitPixelShader(LPD3D11Device device, char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3DBlob** blob, ID3D11PixelShader** shaderPtr)
+HRESULT FUtil::InitPixelShader(char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11PixelShader** shaderPtr)
 {
+    ID3DBlob* blob = NULL;
     HRESULT hr;
-    *blob = NULL;
-    hr = FUtil::CompileShaderFromFile( fileName, entryPoint, shaderModel, blob);
+
+    hr = FUtil::CompileShaderFromFile( fileName, entryPoint, shaderModel, &blob);
     if( FAILED( hr ) )
     {
         MessageBox( NULL,
@@ -88,16 +89,21 @@ HRESULT FUtil::InitPixelShader(LPD3D11Device device, char* fileName, LPCSTR entr
     }
 
     // Create the pixel shader
-    hr = device->CreatePixelShader( (*blob)->GetBufferPointer(), (*blob)->GetBufferSize(), NULL, shaderPtr );
-    (*blob)->Release();
+    hr = GFXDEVICE->CreatePixelShader( 
+        blob->GetBufferPointer(), 
+        blob->GetBufferSize(), 
+        NULL, shaderPtr );
+    blob->Release();
     if( FAILED( hr ) )
         return hr;
 }
 
-HRESULT FUtil::InitVertexShader(LPD3D11Device device, char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3DBlob** blob, ID3D11VertexShader** shaderPtr)
+HRESULT FUtil::InitVertexShader(char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11VertexShader** shaderPtr)
 {
+    ID3DBlob* blob = NULL;
     HRESULT hr;
-    hr = FUtil::CompileShaderFromFile( fileName, entryPoint, shaderModel, blob );
+
+    hr = FUtil::CompileShaderFromFile( fileName, entryPoint, shaderModel, &blob );
     if( FAILED( hr ) )
     {
         MessageBox( NULL,
@@ -106,10 +112,33 @@ HRESULT FUtil::InitVertexShader(LPD3D11Device device, char* fileName, LPCSTR ent
     }
 
     // Create the vertex shader
-    hr = device->CreateVertexShader( (*blob)->GetBufferPointer(), (*blob)->GetBufferSize(), NULL, shaderPtr );
+    hr = GFXDEVICE->CreateVertexShader( blob->GetBufferPointer(), blob->GetBufferSize(), NULL, shaderPtr );
     if( FAILED( hr ) )
     {    
-        (*blob)->Release();
+        blob->Release();
+        return hr;
+    }
+}
+
+
+HRESULT FUtil::InitComputeShader(char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11ComputeShader** shaderPtr)
+{
+    ID3DBlob* blob = NULL;
+    HRESULT hr;
+
+    hr = FUtil::CompileShaderFromFile(fileName, entryPoint, shaderModel, &blob);
+    if (FAILED(hr))
+    {
+        MessageBox(NULL,
+            "The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", "Error", MB_OK);
+        return hr;
+    }
+
+    // Create the vertex shader
+    hr = GFXDEVICE->CreateComputeShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, shaderPtr);
+    if (FAILED(hr))
+    {
+        blob->Release();
         return hr;
     }
 }

@@ -1,5 +1,6 @@
 
 #include "PostEffect.h"
+#include "RenderTarget.h"
 
 
 
@@ -46,17 +47,30 @@ public:
     HBAOPostEffect();
 
 protected:
-    void updateConstants() override;
+    
     void initBuffers();
     void createRandomTexture();
+
+
+    void updateConstants() override;
+    void onPreRender() override;
+    void onPostRender() override;
+
 
     HBAOConstBuffer csBuffer;
     ID3D11Buffer* hwBuffer = NULL;
 
     ID3D11SamplerState* mSamplerPointClamp = NULL;
     ID3D11SamplerState* mSamplerPointWrap = NULL;
+    ID3D11SamplerState* mSamplerLinearClamp = NULL;
     
     ID3D11Texture2D*    mRandomTexture = NULL;
     ID3D11ShaderResourceView*   mRandomTextureSRV = NULL;
+
+    RenderTarget*   hbaoRT = NULL;
+    RenderTarget*   blurRT = NULL;
+
+    ID3D11ComputeShader* blurShaderX = NULL;
+    ID3D11ComputeShader* blurShaderY = NULL;
 };
 

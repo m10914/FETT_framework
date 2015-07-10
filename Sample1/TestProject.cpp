@@ -177,14 +177,12 @@ HRESULT TestProject::RenderScene()
 
     // Render scene to 3 textures: color, normal, depth (auto)
     _renderSceneToGBuffer();
-
-    // TODO: change to rendertarget system
-    GFXCONTEXT->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
-    UpdateViewport(swapChainDesc);
-
-    passthruPFX->render();
+   
     hbaoPFX->render();
 
+    resetRenderTarget();
+
+    passthruPFX->render();
 
     // release some stuff
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
@@ -426,14 +424,9 @@ HRESULT TestProject::InitScene()
 	//----------------------------------------------------------------------------
 	// Create shaders
 
-
-	ID3DBlob* pVSBlob = NULL;
+    FUtil::InitVertexShader("TestProjectShader.fx", "VS", "vs_4_0", &mVertexShader);
     
-    FUtil::InitVertexShader(mDevice, "TestProjectShader.fx", "VS", "vs_4_0", &pVSBlob, &mVertexShader);
-    
-    ID3DBlob* pPSBlob = NULL;
-
-    FUtil::InitPixelShader(mDevice, "TestProjectShader.fx", "PS", "ps_4_0", &pPSBlob, &mPixelShader);
+    FUtil::InitPixelShader("TestProjectShader.fx", "PS", "ps_4_0", &mPixelShader);
 	
 
 	//----------------------------------------------------------------------------

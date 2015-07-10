@@ -38,11 +38,22 @@ HBAOPostEffect::HBAOPostEffect()
 
     GFXDEVICE->CreateSamplerState(&sampDesc, &mSamplerPointClamp);
 
+    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+
+    GFXDEVICE->CreateSamplerState(&sampDesc, &mSamplerLinearClamp);
+
     // buffers
     initBuffers();
 
     // textures
     createRandomTexture();
+
+    // create render target
+    hbaoRT = new RenderTarget("hbao", GFX->getRenderTargetSize());
+    hbaoRT->appendTexture(0, DXGI_FORMAT_R32G32B32A32_FLOAT);
+
+    blurRT = new RenderTarget("blurChain", GFX->getRenderTargetSize());
+    blurRT->appendTexture(0, DXGI_FORMAT_R32G32B32A32_FLOAT);
 }
 
 
@@ -141,7 +152,99 @@ void HBAOPostEffect::initBuffers()
         FUtil::Log("Failed to create constant buffer for HBAO effect.");
         return;
     }
+
+
+    //----------------------------------------------------------------------
+    // compute shaders
+
+    FUtil::InitComputeShader("BlurX_CS.hlsl", "CSMain", "cs_5_0", &blurShaderX);
+    FUtil::InitComputeShader("BlurY_CS.hlsl", "CSMain", "cs_5_0", &blurShaderY);
+
 }
+
+void HBAOPostEffect::onPreRender()
+{
+    hbaoRT->clear(XMFLOAT4(0, 0, 0, 0));
+    hbaoRT->activate();
+}
+
+// Round a / b to nearest higher integer value
+inline UINT iDivUp(UINT a, UINT b)
+{
+    return (a % b != 0) ? (a / b + 1) : (a / b);
+}
+void HBAOPostEffect::onPostRender()
+{
+    hbaoRT->deactivate();
+
+    // do blur and final scene append
+
+    // ---------------------------------------------------------
+    // CS:      BlurX
+    // Input:   BlurXAOInputSRV and FullResLinDepthSRV
+    // Output:  FullResAOZBuffer (R16G16_FLOAT)
+    // ---------------------------------------------------------
+
+    ID3D11SamplerState *pSamplers[] = {
+        mSamplerPointClamp,
+        mSamplerLinearClamp
+    };
+
+    ID3D11ShaderResourceView* pSRVs[] = {
+        hbaoRT->getTextureSRV(0)
+    };
+
+    blurRT->clear(XMFLOAT4(0, 0, 0, 0));
+
+    UINT initCounts = 0;
+    GFXCONTEXT->CSSetShader(blurShaderX, NULL, 0);
+    GFXCONTEXT->CSSetConstantBuffers(0, 1, &hwBuffer);
+
+    ID3D11UnorderedAccessView* uavs[] = { blurRT->getTextureUAV(0) };
+    GFXCONTEXT->CSSetUnorderedAccessViews(0, 1, uavs, &initCounts);
+    GFXCONTEXT->CSSetShaderResources(0, 1, pSRVs);
+    GFXCONTEXT->CSSetSamplers(0, 2, pSamplers);
+
+    // Must match the ROW_TILE_W value defined in BlurX_CS.hlsl
+    const UINT ROW_TILE_W = 320;
+
+    UINT ThreadGroupCountX = iDivUp((UINT)(GFX->getRenderTargetSize().x), ROW_TILE_W);
+    UINT ThreadGroupCountY = (UINT)(GFX->getRenderTargetSize().y);
+
+    GFXCONTEXT->Dispatch(ThreadGroupCountX, ThreadGroupCountY, 1);
+
+    // unbound
+    uavs[0] = NULL;
+    pSRVs[0] = NULL;
+    GFXCONTEXT->CSSetUnorderedAccessViews(0, 1, uavs, &initCounts);
+    GFXCONTEXT->CSSetShaderResources(0, 1, pSRVs);
+
+    // ---------------------------------------------------------
+    // CS:      BlurY
+    // Input:   FullResAOZBuffer (R16G16_FLOAT)
+    // Output:  FullResAOZBuffer2 (R16G16_FLOAT)
+    // ---------------------------------------------------------
+
+    GFXCONTEXT->CSSetShader(blurShaderY, NULL, 0);
+    uavs[0] = hbaoRT->getTextureUAV(0);
+    pSRVs[0] = blurRT->getTextureSRV(0);
+    GFXCONTEXT->CSSetUnorderedAccessViews(0, 1, uavs, &initCounts);
+    GFXCONTEXT->CSSetShaderResources(0, 1, pSRVs);
+
+    // Must match the COL_TILE_W value defined in BlurY_CS.hlsl
+    const UINT COL_TILE_W = 320;
+
+    ThreadGroupCountX = iDivUp((UINT)(GFX->getRenderTargetSize().y), COL_TILE_W);
+    ThreadGroupCountY = (UINT)(GFX->getRenderTargetSize().x);
+    GFXCONTEXT->Dispatch(ThreadGroupCountX, ThreadGroupCountY, 1);
+
+    // unbound
+    uavs[0] = NULL;
+    pSRVs[0] = NULL;
+    GFXCONTEXT->CSSetUnorderedAccessViews(0, 1, uavs, &initCounts);
+    GFXCONTEXT->CSSetShaderResources(0, 1, pSRVs);
+}
+
 
 
 //--------------------------------------------------------------------------------

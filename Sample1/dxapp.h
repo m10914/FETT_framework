@@ -96,6 +96,8 @@ public:
 
     XMFLOAT2 getRenderTargetSize() { return XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height); }
 
+    void resetRenderTarget();
+
 protected:
 
 	HRESULT CreateMainGBuffer();

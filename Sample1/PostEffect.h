@@ -36,6 +36,9 @@ protected:
 
     virtual void updateConstants() = 0;
 
+    virtual void onPreRender() {};
+    virtual void onPostRender() {};
+
     static ID3D11VertexShader*          getQuadVertexShader();
 
 };

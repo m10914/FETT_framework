@@ -157,6 +157,12 @@
     <None Include="HBAO.fx">
       <Filter>TestProject\PostEffects\HBAO</Filter>
     </None>
+    <None Include="BlurY_CS.hlsl">
+      <Filter>TestProject\PostEffects\HBAO</Filter>
+    </None>
+    <None Include="BlurX_CS.hlsl">
+      <Filter>TestProject\PostEffects\HBAO</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="VertexFormatsInitializer.fx">

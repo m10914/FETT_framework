@@ -16,7 +16,7 @@ ID3D11VertexShader* PostEffect::getQuadVertexShader()
     ID3DBlob* pVSBlob = NULL;
 
     if (!mVertexShaderQuad)
-        FUtil::InitVertexShader(GFXDEVICE, "FettEssential.fx", "VS_QUAD", "vs_5_0", &pVSBlob, &mVertexShaderQuad);
+        FUtil::InitVertexShader("FettEssential.fx", "VS_QUAD", "vs_5_0", &mVertexShaderQuad);
 
     return mVertexShaderQuad;
 }
@@ -30,12 +30,11 @@ PostEffect::PostEffect(
     strcpy(pixShaderName, pixShader);
     strcpy(this->entryPoint, entryPoint);
 
-    ID3DBlob* pBlob = NULL;
-    FUtil::InitPixelShader(GFXDEVICE, pixShaderName, entryPoint, "ps_5_0", &pBlob, &mPixelShader);
+    FUtil::InitPixelShader(pixShaderName, entryPoint, "ps_5_0", &mPixelShader);
 
     if (vertShader != NULL)
     {
-        FUtil::InitVertexShader(GFXDEVICE, (char*)vertShader, vertEntryPoint, "vs_5_0", &pBlob, &mVertexShader);
+        FUtil::InitVertexShader((char*)vertShader, vertEntryPoint, "vs_5_0", &mVertexShader);
     }
     else
         mVertexShader = getQuadVertexShader();
@@ -51,6 +50,10 @@ PostEffect::~PostEffect()
 
 void PostEffect::render()
 {
+    onPreRender();
+
+    //------------------
+
     D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 1), L"PostEffect");
 
     updateConstants();
@@ -63,10 +66,15 @@ void PostEffect::render()
     renderQuad();
 
     D3DPERF_EndEvent();
+
+    //------------------
+
+    onPostRender();
 }
 
 
 
+/*static*/
 void PostEffect::renderQuad(XMFLOAT2 offset, XMFLOAT2 relSize)
 {
     //assemble points
