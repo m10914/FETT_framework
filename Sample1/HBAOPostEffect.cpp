@@ -54,6 +54,8 @@ HBAOPostEffect::HBAOPostEffect()
 
     blurRT = new RenderTarget("blurChain", GFX->getRenderTargetSize());
     blurRT->appendTexture(0, DXGI_FORMAT_R32G32B32A32_FLOAT);
+
+    compositePFX = new HBAOComposite();
 }
 
 
@@ -66,11 +68,11 @@ void HBAOPostEffect::updateConstants()
         float zfar = 300.0;
 
         float mAngleBias = 10.0;
-        float mBlurRadius = 1.0;
+        float mBlurRadius = 5.0;
         float mPowExponent = 1.0f;
         float mStrength = 1.0f;
         float mRadiusScale = 1.0f;
-        float mSceneScale = min(znear, zfar);
+        float mSceneScale = 0.005;// min(znear, zfar);
         float mBlurSharpness = 8.0f;
 
 
@@ -243,6 +245,13 @@ void HBAOPostEffect::onPostRender()
     pSRVs[0] = NULL;
     GFXCONTEXT->CSSetUnorderedAccessViews(0, 1, uavs, &initCounts);
     GFXCONTEXT->CSSetShaderResources(0, 1, pSRVs);
+
+
+    // unite
+    GFX->resetRenderTarget();
+    GFXCONTEXT->PSSetSamplers(0, 2, pSamplers);
+    compositePFX->render();
+
 }
 
 
@@ -372,4 +381,29 @@ void HBAOPostEffect::createRandomTexture()
     }
 
     delete[] data;
+}
+
+
+
+//--------------------------------------------------------------------------------
+
+
+
+HBAOPostEffect::HBAOComposite::HBAOComposite()
+    : PostEffect("HBAOComposite.fx", "PS")
+{
+
+}
+
+
+void HBAOPostEffect::HBAOComposite::updateConstants()
+{
+    // set constants here
+
+    // set textures
+    ID3D11ShaderResourceView* srviews[2] = {
+        RenderTarget::getByName("hbao")->getTextureSRV(0),
+        RenderTarget::getByName("second")->getTextureSRV(0)
+    };
+    GFXCONTEXT->PSSetShaderResources(0, 2, srviews);
 }

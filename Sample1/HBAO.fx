@@ -163,7 +163,7 @@ float2 RotateDirections(float2 Dir, float2 CosSin)
 
 
 
-/*
+
 float IntegerateOcclusion(
     float2 uv0,
     float2 snapped_duv,
@@ -251,8 +251,8 @@ float horizon_occlusion(float2 deltaUV,
 
     return ao;
 }
-*/
 
+/*
 //----------------------------------------------------------------------------------
 void IntegrateDirection(inout float ao, float3 P, float2 uv, float2 deltaUV,
     float numSteps, float tanH, float sinH)
@@ -314,7 +314,7 @@ float NormalFreeHorizonOcclusion(float2 deltaUV,
     return max(ao * 0.5 - 1.0, ao1);
 
 }
-
+*/
 
 
 /*
@@ -357,15 +357,15 @@ float4 HBAO_PS(PS_INPUT IN) : SV_Target
     float d;
     float alpha = 2.0f * M_PI / NUM_DIRECTIONS;
 
-    /*for (d = 0; d < NUM_DIRECTIONS; ++d)
+    for (d = 0; d < NUM_DIRECTIONS; ++d)
     {
         float angle = alpha * d;
         float2 dir = RotateDirections(float2(cos(angle), sin(angle)), rand.xy);
         float2 deltaUV = dir * step_size.xy;
         float2 texelDeltaUV = dir * InvAOResolution;
         ao += horizon_occlusion(deltaUV, texelDeltaUV, IN.Tex, P, numSteps, rand.z, dPdu, dPdv);
-    }*/
-    for (d = 0; d < NUM_DIRECTIONS*0.5; ++d)
+    }
+    /*for (d = 0; d < NUM_DIRECTIONS*0.5; ++d)
     {
         float angle = alpha * d;
         float2 dir = RotateDirections(float2(cos(angle), sin(angle)), rand.xy);
@@ -373,7 +373,7 @@ float4 HBAO_PS(PS_INPUT IN) : SV_Target
         float2 texelDeltaUV = dir * InvAOResolution;
         ao += NormalFreeHorizonOcclusion(deltaUV, texelDeltaUV, IN.Tex, P, numSteps, rand.z);
     }
-    ao *= 2.0;
+    ao *= 2.0;*/
 
     ao = 1.0 - ao / NUM_DIRECTIONS * Strength;
     return float4(ao, P.z, 1, 1);

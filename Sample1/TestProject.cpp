@@ -180,10 +180,6 @@ HRESULT TestProject::RenderScene()
    
     hbaoPFX->render();
 
-    resetRenderTarget();
-
-    passthruPFX->render();
-
     // release some stuff
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
 	mImmediateContext->PSSetShaderResources( 0, 3, view );

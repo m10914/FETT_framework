@@ -39,8 +39,6 @@ public:
 
 
 
-
-
 class HBAOPostEffect : public PostEffect
 {
 public:
@@ -72,5 +70,18 @@ protected:
 
     ID3D11ComputeShader* blurShaderX = NULL;
     ID3D11ComputeShader* blurShaderY = NULL;
+
+
+    class HBAOComposite : public PostEffect
+    {
+    public:
+
+        HBAOComposite();
+
+    protected:
+
+        void updateConstants() override;
+    };
+    HBAOComposite* compositePFX = nullptr;
 };
 
