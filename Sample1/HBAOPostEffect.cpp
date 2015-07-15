@@ -14,6 +14,7 @@
 #ifndef SQRT_LN2
 #define SQRT_LN2 0.832554611f
 #endif
+#define NUM_DIRECTIONS 8
 
 HBAOPostEffect::HBAOPostEffect()
     : PostEffect("HBAO.fx", "HBAO_PS")
@@ -207,6 +208,7 @@ void HBAOPostEffect::onPostRender()
     GFXCONTEXT->CSSetShaderResources(0, 1, pSRVs);
     GFXCONTEXT->CSSetSamplers(0, 2, pSamplers);
 
+
     // Must match the ROW_TILE_W value defined in BlurX_CS.hlsl
     const UINT ROW_TILE_W = 320;
 
@@ -257,8 +259,7 @@ void HBAOPostEffect::onPostRender()
 
 
 //--------------------------------------------------------------------------------
-#define NUM_DIRECTIONS 8
-#define NUM_STEPS 6
+
 
 void HBAOPostEffect::createRandomTexture()
 {
