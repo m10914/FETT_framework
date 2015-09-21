@@ -390,6 +390,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
+    <ClCompile Include="DOF.cpp" />
     <ClCompile Include="FPGrid.cpp" />
     <ClCompile Include="FLightSource.cpp" />
     <ClCompile Include="FPCube.cpp" />
@@ -412,6 +413,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
+    <ClInclude Include="DOF.h" />
     <ClInclude Include="FLightSource.h" />
     <ClInclude Include="FPCube.h" />
     <ClInclude Include="dxapp.h" />
@@ -455,6 +457,17 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="HBAOComposite.fx">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="DOF.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

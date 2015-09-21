@@ -36,7 +36,7 @@
 
 #include "PassthruPostEffect.h"
 #include "HBAOPostEffect.h"
-
+#include "DOF.h"
 
 
 //--------------------------------------------------------------------------------------
@@ -94,13 +94,15 @@ private:
 	ID3D11DepthStencilState*			mDSOrdinary = NULL;
 	ID3D11DepthStencilState*			mDSFullscreenPass = NULL;
 
-    RenderTarget*                       mSecondRT = NULL;
+    std::unique_ptr<RenderTarget>       mSecondRT;
+    std::unique_ptr<RenderTarget>       mDofBlurRT;
+    std::unique_ptr<RenderTarget>       mDofBokehRT;
 
 
     //-------------------------------------------------------------------
     // P O S T E F F E C T S
     PassthruPostEffect*         passthruPFX = NULL;
-    HBAOPostEffect*             hbaoPFX = NULL;
+    DOFEffect*                  dofEffect = NULL;
 
     //----------------------------------
 	// objects'n'stuff

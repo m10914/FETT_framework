@@ -36,6 +36,9 @@
     <Filter Include="TestProject\PostEffects\HBAO">
       <UniqueIdentifier>{be1afca2-d431-47f1-9452-7753abc92616}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TestProject\PostEffects\DOF">
+      <UniqueIdentifier>{ce9d0931-ea5b-496f-887f-df133605f87b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dxapp.cpp">
@@ -86,6 +89,9 @@
     </ClCompile>
     <ClCompile Include="HBAOPostEffect.cpp">
       <Filter>TestProject\PostEffects\HBAO</Filter>
+    </ClCompile>
+    <ClCompile Include="DOF.cpp">
+      <Filter>TestProject\PostEffects\DOF</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -143,6 +149,9 @@
     <ClInclude Include="HBAOPostEffect.h">
       <Filter>TestProject\PostEffects\HBAO</Filter>
     </ClInclude>
+    <ClInclude Include="DOF.h">
+      <Filter>TestProject\PostEffects\DOF</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="TestProjectShader.fx">
@@ -165,6 +174,9 @@
     </None>
     <None Include="HBAOComposite.fx">
       <Filter>TestProject\PostEffects\HBAO</Filter>
+    </None>
+    <None Include="DOF.hlsl">
+      <Filter>TestProject\PostEffects\DOF</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

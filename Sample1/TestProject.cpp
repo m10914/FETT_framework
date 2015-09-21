@@ -178,7 +178,46 @@ HRESULT TestProject::RenderScene()
     // Render scene to 3 textures: color, normal, depth (auto)
     _renderSceneToGBuffer();
    
-    hbaoPFX->render();
+
+    //---------------------------
+    // 1st step - perform blur
+    mDofBlurRT->activate();
+    mDofBlurRT->clear(XMFLOAT4{ 0.0, 0.0, 0.0, 0.0f });
+
+    float blurQ = std::sin(totalTime * 0.0001) * 4;
+
+    dofEffect->doBlur(
+        mSecondRT->getTextureSRV(0),
+        blurQ
+        );
+
+    mDofBlurRT->deactivate();
+
+    //---------------------------
+    // 2nd step - perform bokeh shapes
+    // warning! non-optimized version
+
+    mDofBokehRT->activate();
+    mDofBokehRT->clear(XMFLOAT4{ 0.0, 0.0, 0.0, 0.0f });
+
+    dofEffect->doBokeh(
+        mSecondRT->getTextureSRV(0),
+        mSecondRT->getDepthStencilSRV(),
+        swapChainDesc.BufferDesc.Width,
+        swapChainDesc.BufferDesc.Height
+    );
+
+    mDofBokehRT->deactivate();
+ 
+    //---------------------------
+    // 3rd step - merge
+    // preset
+
+    resetRenderTarget();
+    dofEffect->doMerge(
+        mDofBlurRT->getTextureSRV(0), 
+        mDofBokehRT->getTextureSRV(0)
+        );
 
     // release some stuff
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
@@ -394,18 +433,32 @@ HRESULT TestProject::InitScene()
 {
 	HRESULT hr;
 
-    //create render target
-    mSecondRT = new RenderTarget(
+    // create render target
+    mSecondRT = std::make_unique<RenderTarget>(
         "second", 
-        XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Width)
+        XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height)
         );
-    mSecondRT->appendTexture(0, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    mSecondRT->appendTexture(0, DXGI_FORMAT_R16G16B16A16_FLOAT);
     mSecondRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
+
+    mDofBlurRT = std::make_unique<RenderTarget>(
+        "DofBlurRT",
+        XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height)
+        );
+    mDofBlurRT->appendTexture(0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+    mDofBlurRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
+
+    mDofBokehRT = std::make_unique<RenderTarget>(
+        "DofBokehRT",
+        XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height)
+        );
+    mDofBokehRT->appendTexture(0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+    mDofBokehRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
 
 
     //posteffects
     passthruPFX = new PassthruPostEffect();
-    hbaoPFX = new HBAOPostEffect();
+    dofEffect = new DOFEffect();
 
 	// create objects
 	cube.Init(mDevice);
@@ -440,7 +493,7 @@ HRESULT TestProject::InitScene()
 
 
 	// Load the Texture
-	hr = D3DX11CreateShaderResourceViewFromFile( mDevice, "seafloor.dds", NULL, NULL, &mTextureRV, NULL );
+	hr = D3DX11CreateShaderResourceViewFromFile( mDevice, "bokeh.png", NULL, NULL, &mTextureRV, NULL );
 	if( FAILED( hr ) )
 		return hr;
 
@@ -570,9 +623,8 @@ HRESULT TestProject::ReleaseScene()
 	SAFE_RELEASE(mDSOrdinary);
 	SAFE_RELEASE(mDSFullscreenPass);
 
-    SAFE_DELETE(mSecondRT);
-    SAFE_DELETE(passthruPFX);
 
+    SAFE_DELETE(dofEffect);
 
 	return S_OK;
 }

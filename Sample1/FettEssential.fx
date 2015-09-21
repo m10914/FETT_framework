@@ -39,3 +39,7 @@ float4 PS_QUAD(PS_INPUT input) : SV_Target
 {
     return float4(txDiffuse.SampleLevel(samLinear, input.Tex, 0).xyz, 1);
 }
+
+
+//-----------------------------------------------
+// finalize
