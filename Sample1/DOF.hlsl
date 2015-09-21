@@ -98,7 +98,7 @@ VertToPix vs_main(uint id : SV_VertexID)
     OUT.col.a = 1;
 
     // discard
-    if (lum < 0.4 && locLum > 0.4)
+    if (lum < 0.4 && locLum < 0.6)
         OUT.pos += 1000;
 
     return OUT;
@@ -111,7 +111,7 @@ float4 ps_main(VertToPix IN) : SV_TARGET
 {
     float bokehTex = dot(bokehShape.Sample(samplerDefault, IN.uv).rgb, LUM_WEIGHTS);
 
-    return float4(IN.col.rgb*bokehTex, 1 - bokehTex);
+    return float4(IN.col.rgb*bokehTex, 1.0);
 }
 
 
