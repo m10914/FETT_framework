@@ -453,7 +453,7 @@ HRESULT TestProject::InitScene()
         XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height)
         );
     mDofBokehRT->appendTexture(0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-    mDofBokehRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
+    //mDofBokehRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
 
 
     //posteffects
@@ -493,7 +493,7 @@ HRESULT TestProject::InitScene()
 
 
 	// Load the Texture
-	hr = D3DX11CreateShaderResourceViewFromFile( mDevice, "bokeh.png", NULL, NULL, &mTextureRV, NULL );
+	hr = D3DX11CreateShaderResourceViewFromFile( mDevice, "tex.png", NULL, NULL, &mTextureRV, NULL );
 	if( FAILED( hr ) )
 		return hr;
 

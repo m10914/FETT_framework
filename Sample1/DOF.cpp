@@ -189,7 +189,7 @@ DOFEffect::DOFEffect()
 
 
     // Load the Texture
-    hr = D3DX11CreateShaderResourceViewFromFile(GFXDEVICE, "bokehShape.jpg", NULL, NULL, &mBokehShapeTexSRV, NULL);
+    hr = D3DX11CreateShaderResourceViewFromFile(GFXDEVICE, "bokehShape.dds", NULL, NULL, &mBokehShapeTexSRV, NULL);
     if (FAILED(hr))
     {
         MessageBox(0, "Error: cannot create bokeh shape texture", "Error.", 0);

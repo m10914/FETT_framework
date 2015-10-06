@@ -39,17 +39,17 @@ float GatherLumKernel(uint x, uint y)
     float res = 0;
 
     [unroll]
-    for (uint i = 0; i < 4; i++)
-        for (uint j = 0; j < 4; j++)
+    for (uint i = 0; i < 10; i++)
+        for (uint j = 0; j < 10; j++)
         {
             uint2 ind = uint2(
-                x - 2 + i + float(i == 2) * 1,
-                y - 2 + j + float(j == 2) * 1
+                x - 5 + i + float(i >= 5) * 1,
+                y - 5 + j + float(j >= 5) * 1
                 );
             res += dot( colorTex.Load(int3(ind.xy, 0)).rgb, LUM_WEIGHTS );
         }
 
-    return res / 16.0;
+    return res / 100.0;
 }
 
 VertToPix vs_main(uint id : SV_VertexID)
@@ -110,8 +110,9 @@ Texture2D bokehShape : register(t2);
 float4 ps_main(VertToPix IN) : SV_TARGET
 {
     float bokehTex = dot(bokehShape.Sample(samplerDefault, IN.uv).rgb, LUM_WEIGHTS);
+    clip(bokehTex - 0.1);
 
-    return float4(IN.col.rgb*bokehTex, 1.0);
+    return float4(IN.col.rgb*bokehTex, bokehTex);
 }
 
 
@@ -145,7 +146,7 @@ FinVertToPix vs_finalize(uint id : SV_VertexID)
 float4 ps_finalize(FinVertToPix IN) : SV_Target
 {
     float4 bokeh = bokehShapes.Sample(samplerDefault, float2(IN.uv.x, 1 - IN.uv.y));
-    if (bokeh.a != 0) bokeh.rgb /= bokeh.a;
+    //if (bokeh.a != 0) bokeh.rgb /= bokeh.a;
     float4 scene = blurredColor.Sample(samplerDefault, IN.uv);
 
     return float4(scene.rgb + bokeh.rgb, 1);
