@@ -26,7 +26,8 @@ public:
     
     static HRESULT InitVertexShader( char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11VertexShader** shaderPtr);
     static HRESULT InitPixelShader( char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11PixelShader** shaderPtr);
-    static HRESULT InitComputeShader( char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11ComputeShader** shaderPtr);
+    static HRESULT InitComputeShader(char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11ComputeShader** shaderPtr);
+    static HRESULT InitGeometryShader(char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11GeometryShader** shaderPtr);
 
 
     // math helpers

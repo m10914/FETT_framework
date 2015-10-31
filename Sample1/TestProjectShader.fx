@@ -92,11 +92,43 @@ PS_INPUT VS(VS_INPUT input)
 float4 PS( PS_INPUT input ) : SV_Target
 {
     float4 res = float4(
-        txDiffuse.Sample(samLinear, input.Tex).xyz * 2,
+        txDiffuse.Sample(samLinear, input.Tex).xyz,
     1);
     return res;
 }
 
+
+//-----------------------------------------------------------------
+// TRAILS
+
+struct TR_VS_INPUT
+{
+    float4 Pos : POSITION;
+    float2 Tex : TEXCOORD0;
+};
+
+PS_INPUT trails_vs(VS_INPUT input)
+{
+
+}
+
+
+[maxvertexcount(4)]
+void trail_gs(point VS_OUTPUT inStream[1], inout TriangleStream<GS_OUTPUT> outStream)
+{
+    float4      inPosition = inStream[0].hpos;
+    float2      inScale = inStream[0].scale;
+    float2      inRotation = inStream[0].packedRotation;
+
+    float       sine = inRotation.y;
+    float       cosine = inRotation.x;
+
+    float4      v_down = float4(0.0F, 0.0F, 1.0F, 0.0F) * inScale.y;
+    float4      v_right0 = float4(-sine, cosine, 0.0F, 0.0F) * inScale.x;
+    float4      v_up0 = float4(0.0F, 0.0F, 1.0F, 0.0F) * inScale.y;
+
+    float4      v_right1 = float4(-cosine, -sine, 0.0F, 0.0F) * inScale.x;
+}
 
 
 

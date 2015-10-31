@@ -21,7 +21,7 @@ void PassthruPostEffect::updateConstants()
 
 
     // set textures here
-    RenderTarget* rt = RenderTarget::getByName("DofBokehRT");
+    RenderTarget* rt = RenderTarget::getByName("second");
     if (rt == nullptr) return;
 
     ID3D11ShaderResourceView* srviews[1] = { rt->getTextureSRV(0) };

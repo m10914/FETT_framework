@@ -142,3 +142,26 @@ HRESULT FUtil::InitComputeShader(char* fileName, LPCSTR entryPoint, LPCTSTR shad
         return hr;
     }
 }
+
+
+HRESULT FUtil::InitGeometryShader(char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11GeometryShader** shaderPtr)
+{
+    ID3DBlob* blob = NULL;
+    HRESULT hr;
+
+    hr = FUtil::CompileShaderFromFile(fileName, entryPoint, shaderModel, &blob);
+    if (FAILED(hr))
+    {
+        MessageBox(NULL,
+            "The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", "Error", MB_OK);
+        return hr;
+    }
+
+    // Create the vertex shader
+    hr = GFXDEVICE->CreateGeometryShader(blob->GetBufferPointer(), blob->GetBufferSize(), NULL, shaderPtr);
+    if (FAILED(hr))
+    {
+        blob->Release();
+        return hr;
+    }
+}

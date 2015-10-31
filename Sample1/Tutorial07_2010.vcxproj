@@ -414,6 +414,7 @@
   <ItemGroup>
     <ClInclude Include="camera.h" />
     <ClInclude Include="DOF.h" />
+    <ClInclude Include="FETTShaders.h" />
     <ClInclude Include="FLightSource.h" />
     <ClInclude Include="FPCube.h" />
     <ClInclude Include="dxapp.h" />

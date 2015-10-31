@@ -59,6 +59,9 @@ struct __declspec(align(16)) CBforDeferredPass
 
 
 
+
+
+
 class __declspec(align(16)) TestProject : public DXApp
 {
 private:
@@ -67,8 +70,13 @@ private:
     // shaders
 
     //ordinary scene rendering
-	ID3D11VertexShader*                 mVertexShader = NULL;
-	ID3D11PixelShader*                  mPixelShader = NULL;
+	std::unique_ptr<FETTVertexShader> mVertexShader;
+	std::unique_ptr<FETTPixelShader>  mPixelShader;
+
+    // trail
+    std::unique_ptr<FETTVertexShader> mTrailVS;
+    std::unique_ptr<FETTPixelShader>  mTrailPS;
+    std::unique_ptr<FETTGeometryShader> mTrailGS;
 
 
     //-----------------------------------------------------------
@@ -95,14 +103,9 @@ private:
 	ID3D11DepthStencilState*			mDSFullscreenPass = NULL;
 
     std::unique_ptr<RenderTarget>       mSecondRT;
-    std::unique_ptr<RenderTarget>       mDofBlurRT;
-    std::unique_ptr<RenderTarget>       mDofBokehRT;
 
 
-    //-------------------------------------------------------------------
-    // P O S T E F F E C T S
-    PassthruPostEffect*         passthruPFX = NULL;
-    DOFEffect*                  dofEffect = NULL;
+    std::unique_ptr<PassthruPostEffect> passthruPFX;
 
     //----------------------------------
 	// objects'n'stuff

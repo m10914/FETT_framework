@@ -19,6 +19,7 @@ Basic framework class for all application.
 #include <xnamath.h>
 
 #include "VertexFormats.h"
+#include "FETTShaders.h"
 
 #pragma comment (lib, "dinput8.lib")
 #pragma comment (lib, "dxguid.lib")
@@ -30,9 +31,6 @@ Basic framework class for all application.
 #define LPD3D11Buffer ID3D11Buffer*
 
 
-#define SAFE_RELEASE(x)		if (x) { (x)->Release();		(x) = NULL; }	//!< Safe D3D-style release
-#define SAFE_DELETE_ARRAY(p) { if (p) { delete[] (p);   (p)=NULL; } }
-#define SAFE_DELETE(p) { if (p) { delete (p);   (p)=NULL; } }
 
 
 #if defined(_DEBUG)

@@ -24,6 +24,8 @@ TestProject::TestProject():
     plane(1024),
     cube(64)*/
 {
+    mVertexShader = std::make_unique<FETTVertexShader>();
+    mPixelShader = std::make_unique<FETTPixelShader>();
 }
 
 TestProject::~TestProject()
@@ -178,46 +180,9 @@ HRESULT TestProject::RenderScene()
     // Render scene to 3 textures: color, normal, depth (auto)
     _renderSceneToGBuffer();
    
-
-    //---------------------------
-    // 1st step - perform blur
-    mDofBlurRT->activate();
-    mDofBlurRT->clear(XMFLOAT4{ 0.0, 0.0, 0.0, 0.0f });
-
-    float blurQ = std::sin(totalTime * 0.0001) * 4;
-
-    dofEffect->doBlur(
-        mSecondRT->getTextureSRV(0),
-        blurQ
-        );
-
-    mDofBlurRT->deactivate();
-
-    //---------------------------
-    // 2nd step - perform bokeh shapes
-    // warning! non-optimized version
-
-    mDofBokehRT->activate();
-    mDofBokehRT->clear(XMFLOAT4{ 0.0, 0.0, 0.0, 0.0f });
-
-    dofEffect->doBokeh(
-        mSecondRT->getTextureSRV(0),
-        mSecondRT->getDepthStencilSRV(),
-        swapChainDesc.BufferDesc.Width,
-        swapChainDesc.BufferDesc.Height
-    );
-
-    mDofBokehRT->deactivate();
- 
-    //---------------------------
-    // 3rd step - merge
-    // preset
-
     resetRenderTarget();
-    dofEffect->doMerge(
-        mDofBlurRT->getTextureSRV(0), 
-        mDofBokehRT->getTextureSRV(0)
-        );
+    
+    passthruPFX->render();
 
     // release some stuff
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
@@ -225,6 +190,10 @@ HRESULT TestProject::RenderScene()
 
 	return S_OK;
 }
+
+
+
+
 
 
 void TestProject::_renderSceneToGBuffer()
@@ -257,8 +226,8 @@ void TestProject::_renderSceneToGBuffer()
     mImmediateContext->IASetInputLayout(mLayoutPT);
     mImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    mImmediateContext->VSSetShader(mVertexShader, NULL, 0);
-    mImmediateContext->PSSetShader(mPixelShader, NULL, 0);
+    mImmediateContext->VSSetShader(mVertexShader->getP(), NULL, 0);
+    mImmediateContext->PSSetShader(mPixelShader->getP(), NULL, 0);
 
     mImmediateContext->VSSetConstantBuffers(0, 1, &mCBChangesEveryFrame);
     mImmediateContext->PSSetConstantBuffers(0, 1, &mCBChangesEveryFrame);
@@ -441,24 +410,9 @@ HRESULT TestProject::InitScene()
     mSecondRT->appendTexture(0, DXGI_FORMAT_R16G16B16A16_FLOAT);
     mSecondRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
 
-    mDofBlurRT = std::make_unique<RenderTarget>(
-        "DofBlurRT",
-        XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height)
-        );
-    mDofBlurRT->appendTexture(0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-    mDofBlurRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
-
-    mDofBokehRT = std::make_unique<RenderTarget>(
-        "DofBokehRT",
-        XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height)
-        );
-    mDofBokehRT->appendTexture(0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-    //mDofBokehRT->appendDepthStencil(DXGI_FORMAT_R32_TYPELESS);
-
 
     //posteffects
-    passthruPFX = new PassthruPostEffect();
-    dofEffect = new DOFEffect();
+    passthruPFX = std::make_unique<PassthruPostEffect>();
 
 	// create objects
 	cube.Init(mDevice);
@@ -473,10 +427,15 @@ HRESULT TestProject::InitScene()
 	//----------------------------------------------------------------------------
 	// Create shaders
 
-    FUtil::InitVertexShader("TestProjectShader.fx", "VS", "vs_4_0", &mVertexShader);
+    FUtil::InitVertexShader("TestProjectShader.fx", "VS", "vs_4_0", mVertexShader->getPP());
     
-    FUtil::InitPixelShader("TestProjectShader.fx", "PS", "ps_4_0", &mPixelShader);
+    FUtil::InitPixelShader("TestProjectShader.fx", "PS", "ps_4_0", mPixelShader->getPP());
 	
+    FUtil::InitVertexShader("TestProjectShader.fx", "trail_vs", "vs_4_0", mTrailVS->getPP());
+    FUtil::InitGeometryShader("TestProjectShader.fx", "trail_gs", "ps_4_0", mTrailGS->getPP());
+    FUtil::InitPixelShader("TestProjectShader.fx", "trail_ps", "gs_4_0", mTrailPS->getPP());
+
+
 
 	//----------------------------------------------------------------------------
 	// Create the constant buffers
@@ -493,7 +452,7 @@ HRESULT TestProject::InitScene()
 
 
 	// Load the Texture
-	hr = D3DX11CreateShaderResourceViewFromFile( mDevice, "tex.png", NULL, NULL, &mTextureRV, NULL );
+	hr = D3DX11CreateShaderResourceViewFromFile( mDevice, "seafloor.dds", NULL, NULL, &mTextureRV, NULL );
 	if( FAILED( hr ) )
 		return hr;
 
@@ -610,8 +569,6 @@ HRESULT TestProject::ReleaseScene()
 	cube.Release();
 	plane.Release();
 
-	SAFE_RELEASE(mVertexShader);
-	SAFE_RELEASE(mPixelShader);
 
 	SAFE_RELEASE(mCBChangesEveryFrame);
 	SAFE_RELEASE(mTextureRV);
@@ -623,8 +580,6 @@ HRESULT TestProject::ReleaseScene()
 	SAFE_RELEASE(mDSOrdinary);
 	SAFE_RELEASE(mDSFullscreenPass);
 
-
-    SAFE_DELETE(dofEffect);
 
 	return S_OK;
 }
