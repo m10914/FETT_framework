@@ -103,8 +103,18 @@ float4 PS( PS_INPUT input ) : SV_Target
 
 struct TR_VS_INPUT
 {
-    float4 Pos : POSITION;
-    float2 Tex : TEXCOORD0;
+    float4 hpos : POSITION;
+    float2 uv : TEXCOORD0;
+};
+
+struct TR_GS_INPUT
+{
+    float4 hpos : SV_Position;
+};
+
+struct TR_PS_INPUT
+{
+
 };
 
 PS_INPUT trails_vs(VS_INPUT input)
@@ -132,6 +142,10 @@ void trail_gs(point VS_OUTPUT inStream[1], inout TriangleStream<GS_OUTPUT> outSt
 
 
 
+float4 trail_ps(TR_PS_INPUT IN)
+{
+    return float4(1, 0, 0, 1);
+}
 
 /*
 ==============================================================
