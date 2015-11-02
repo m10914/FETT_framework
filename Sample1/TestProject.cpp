@@ -26,6 +26,10 @@ TestProject::TestProject():
 {
     mVertexShader = std::make_unique<FETTVertexShader>();
     mPixelShader = std::make_unique<FETTPixelShader>();
+
+    mTrailVS = std::make_unique<FETTVertexShader>();
+    mTrailPS = std::make_unique<FETTPixelShader>();
+    mTrailGS = std::make_unique<FETTGeometryShader>();
 }
 
 TestProject::~TestProject()
@@ -150,12 +154,12 @@ void TestProject::_renderSceneObjects(bool bPlane, bool bCubes)
     if (bCubes)
     {
         // invoke manual tesselation
-        /*static bool bTes = false;
-        if (!bTes)
-        {
-            bTes = true;
-            cube.tesselate(0.05, mDevice, mImmediateContext);
-        }*/
+//         static bool bTes = false;
+//         if (!bTes)
+//         {
+//             bTes = true;
+//             cube.tesselate(0.05, mDevice, mImmediateContext);
+//         }
 
         //cubes
         cube.position = XMFLOAT3(0, 0, 0);
@@ -167,6 +171,102 @@ void TestProject::_renderSceneObjects(bool bPlane, bool bCubes)
         cube.position = XMFLOAT3(-3, 0, 0);
         FUtil::RenderPrimitive(&cube, mImmediateContext, cb, mCBChangesEveryFrame);
     }
+
+
+    // render trails
+    _renderTrails();
+}
+
+
+XMFLOAT3 getUpvec(XMFLOAT3 pos1, XMFLOAT3 pos2)
+{
+    XMVECTOR vDiff = XMVectorSet(pos2.x - pos1.x, pos2.y - pos1.y, pos2.z - pos1.z, 0);
+    XMVECTOR tang = XMVector3Cross(vDiff, XMVectorSet(0, 1, 0, 0));
+    XMVECTOR upvec = XMVector3Cross(vDiff, tang);
+    upvec = XMVector3Normalize(upvec);
+
+    return fv3(upvec);
+}
+
+void TestProject::_renderTrails()
+{
+    ID3D11Buffer* mVertexBuffer = NULL;
+
+    //create buffers
+    HRESULT hr;
+
+    // Create vertex buffer
+    const int numOfVerts = 8;
+
+    VertexFormatPPTT vertices[numOfVerts];
+    for (int i = 0; i < numOfVerts; i++)
+    {
+        vertices[i].Pos = XMFLOAT3(i, i, i);
+        vertices[i].uv = XMFLOAT2(i, i);
+    }
+
+    //generate upvecs
+    for (int i = 0; i < numOfVerts; i++)
+    {
+        XMFLOAT3 upvec = getUpvec(vertices[i].Pos2, vertices[i].Pos);
+        
+        vertices[i].Upvec = upvec; //calc immediate upvec
+    }
+
+    // calc intermediate upvecs
+    for (int i = 1; i < numOfVerts-1; i++)
+    {
+        vertices[i].Upvec = fv3(XMVectorLerp(vf3(vertices[i].Upvec), vf3(vertices[i + 1].Upvec), 0.5));
+    }
+
+    // push next info
+    for (int i = 0; i < numOfVerts - 1; i++)
+    {
+        vertices[i].Pos2 = vertices[i + 1].Pos;
+        vertices[i].uv2 = vertices[i + 1].uv;
+        vertices[i].Upvec2 = vertices[i + 1].Upvec;
+    }
+
+
+
+    D3D11_SUBRESOURCE_DATA InitData;
+    ZeroMemory(&InitData, sizeof(InitData));
+
+    D3D11_BUFFER_DESC bd;
+    ZeroMemory(&bd, sizeof(bd));
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(vertices);
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+
+    InitData.pSysMem = vertices;
+    hr = mDevice->CreateBuffer(&bd, &InitData, &mVertexBuffer);
+    if (FAILED(hr))
+        return;
+
+    mImmediateContext->IASetInputLayout(VertexFormatMgr::getPPTTLayout());
+    mImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+
+    mImmediateContext->RSSetState(mRSCullNone);
+
+    mImmediateContext->VSSetShader(mTrailVS->getP(), NULL, 0);
+    mImmediateContext->PSSetShader(mTrailPS->getP(), NULL, 0);
+    mImmediateContext->GSSetShader(mTrailGS->getP(), NULL, 0);
+
+    //render buffer with current camera
+    mImmediateContext->UpdateSubresource(mCBChangesEveryFrame, 0, NULL, &cb, 0, 0);
+
+    // Set vertex buffer
+    UINT stride = sizeof(VertexFormatPPTT);
+    UINT offset = 0;
+    mImmediateContext->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &offset);
+
+    // draw dat shit
+    mImmediateContext->Draw(numOfVerts-1, 0);
+
+    SAFE_RELEASE(mVertexBuffer);
+
+    mImmediateContext->GSSetShader(NULL, NULL, 0);
 }
 
 
@@ -432,8 +532,8 @@ HRESULT TestProject::InitScene()
     FUtil::InitPixelShader("TestProjectShader.fx", "PS", "ps_4_0", mPixelShader->getPP());
 	
     FUtil::InitVertexShader("TestProjectShader.fx", "trail_vs", "vs_4_0", mTrailVS->getPP());
-    FUtil::InitGeometryShader("TestProjectShader.fx", "trail_gs", "ps_4_0", mTrailGS->getPP());
-    FUtil::InitPixelShader("TestProjectShader.fx", "trail_ps", "gs_4_0", mTrailPS->getPP());
+    FUtil::InitGeometryShader("TestProjectShader.fx", "trail_gs", "gs_5_0", mTrailGS->getPP());
+    FUtil::InitPixelShader("TestProjectShader.fx", "trail_ps", "ps_5_0", mTrailPS->getPP());
 
 
 

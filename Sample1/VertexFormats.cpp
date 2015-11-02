@@ -7,6 +7,7 @@
 //statics
 ID3D11InputLayout* VertexFormatMgr::mPTLayout(NULL);
 ID3D11InputLayout* VertexFormatMgr::mPNTLayout(NULL);
+ID3D11InputLayout* VertexFormatMgr::mPPTTLayout(NULL);
 
 
 
@@ -68,6 +69,40 @@ ID3D11InputLayout* VertexFormatMgr::getPNTLayout()
 
     return mPNTLayout;
 }
+
+
+//static
+ID3D11InputLayout* VertexFormatMgr::getPPTTLayout()
+{
+    HRESULT hr;
+
+    if (mPPTTLayout == NULL)
+    {
+        ID3DBlob* pVSBlob = getShaderBlob("VS_PPTT");
+
+        // Define the input layout
+        D3D11_INPUT_ELEMENT_DESC layout[] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 2, DXGI_FORMAT_R32G32B32_FLOAT, 0, 36, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 3, DXGI_FORMAT_R32G32_FLOAT, 0, 48, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 4, DXGI_FORMAT_R32G32_FLOAT, 0, 56, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+        UINT numElements = ARRAYSIZE(layout);
+
+        // Create the input layout
+        hr = GFXDEVICE->CreateInputLayout(layout, numElements, pVSBlob->GetBufferPointer(),
+            pVSBlob->GetBufferSize(), &mPPTTLayout);
+
+        pVSBlob->Release();
+    }
+
+
+    return mPPTTLayout;
+}
+
 
 
 /*

@@ -73,7 +73,7 @@ HRESULT FPPlane::Render(LPD3DDeviceContext context)
 	context->IASetIndexBuffer( mIndexBuffer, DXGI_FORMAT_R16_UINT, 0 );
 
 	// draw dat shit
-	context->DrawIndexed( 6, 0, 0 );
+	//context->DrawIndexed( 6, 0, 0 );
 
 	return S_OK;
 }

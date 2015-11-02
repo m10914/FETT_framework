@@ -154,6 +154,7 @@ protected:
     void _renderSceneToGBuffer();
 
     void _renderSceneObjects(bool bPlane = true, bool bCubes = true);
+    void _renderTrails();
 
 	virtual HRESULT RenderScene() override;
 	virtual HRESULT InitScene() override;

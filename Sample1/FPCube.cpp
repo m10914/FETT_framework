@@ -401,7 +401,7 @@ HRESULT FPCube::Render(LPD3DDeviceContext context)
 	context->IASetIndexBuffer( mIndexBuffer, DXGI_FORMAT_R16_UINT, 0 );
 
 	// draw dat shit
-	context->DrawIndexed( numPrims, 0, 0 );
+	//context->DrawIndexed( numPrims, 0, 0 );
 
 	return S_OK;
 }

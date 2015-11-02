@@ -103,48 +103,98 @@ float4 PS( PS_INPUT input ) : SV_Target
 
 struct TR_VS_INPUT
 {
-    float4 hpos : POSITION;
-    float2 uv : TEXCOORD0;
+    float3 pos : POSITION;
+    float3 pos2 : TEXCOORD0;
+    float3 upvec : TEXCOORD1;
+    float3 upvec2 : TEXCOORD2;
+    float2 uv : TEXCOORD3;
+    float2 uv2 : TEXCOORD4;
 };
 
 struct TR_GS_INPUT
 {
-    float4 hpos : SV_Position;
+    float4 pos1 : SV_Position;
+    float4 pos2 : TEXCOORD0;
+    float4 pos3 : TEXCOORD1;
+    float4 pos4 : TEXCOORD2;
+    float2 uv : TEXCOORD3;
+    float2 uv2 : TEXCOORD4;
 };
 
 struct TR_PS_INPUT
 {
-
+    float4 hpos : SV_Position;
+    float2 uv : TEXCOORD0;
 };
 
-PS_INPUT trails_vs(VS_INPUT input)
+float4 calcMVP(float3 inVec)
 {
+    float4 output;
 
+    output = mul(float4(inVec, 1), Projection);
+    output /= output.w;
+
+    return output;
+}
+
+TR_GS_INPUT trail_vs(TR_VS_INPUT input)
+{
+    TR_GS_INPUT output = (TR_GS_INPUT)0;
+
+    float4 vsPos1 = mul(float4(input.pos, 1), World);
+    vsPos1 = mul(vsPos1, View);
+
+    float4 vsPos2 = mul(float4(input.pos2, 1), World);
+    vsPos2 = mul(vsPos2, View);
+
+    float3 tang1 = normalize( cross(vsPos2.xyz - vsPos1.xyz, vsPos1.xyz) );
+    float3 tang2 = normalize( cross(vsPos2.xyz - vsPos1.xyz, vsPos2.xyz) );
+
+    output.pos1 = calcMVP(vsPos1 + tang1);
+    output.pos2 = calcMVP(vsPos1 - tang1);
+    output.pos3 = calcMVP(vsPos2 + tang2);
+    output.pos4 = calcMVP(vsPos2 - tang2);
+
+    //textures
+    output.uv = input.uv;
+    output.uv2 = input.uv2;
+
+    return output;
 }
 
 
 [maxvertexcount(4)]
-void trail_gs(point VS_OUTPUT inStream[1], inout TriangleStream<GS_OUTPUT> outStream)
+void trail_gs(point TR_GS_INPUT inStream[1], inout TriangleStream<TR_PS_INPUT> outStream)
 {
-    float4      inPosition = inStream[0].hpos;
-    float2      inScale = inStream[0].scale;
-    float2      inRotation = inStream[0].packedRotation;
+    TR_PS_INPUT OUT;
 
-    float       sine = inRotation.y;
-    float       cosine = inRotation.x;
+    OUT.hpos = inStream[0].pos1;
+    OUT.uv = float2(inStream[0].uv);
+    outStream.Append(OUT);
 
-    float4      v_down = float4(0.0F, 0.0F, 1.0F, 0.0F) * inScale.y;
-    float4      v_right0 = float4(-sine, cosine, 0.0F, 0.0F) * inScale.x;
-    float4      v_up0 = float4(0.0F, 0.0F, 1.0F, 0.0F) * inScale.y;
+    OUT.hpos = inStream[0].pos3;
+    OUT.uv = float2(inStream[0].uv2);
+    outStream.Append(OUT);
 
-    float4      v_right1 = float4(-cosine, -sine, 0.0F, 0.0F) * inScale.x;
+    OUT.hpos = inStream[0].pos2;
+    OUT.uv = float2(inStream[0].uv + float2(0,1));
+    outStream.Append(OUT);
+
+    OUT.hpos = inStream[0].pos4;
+    OUT.uv = float2(inStream[0].uv2 + float2(0,1));
+    outStream.Append(OUT);
+
+    outStream.RestartStrip();
 }
 
 
 
-float4 trail_ps(TR_PS_INPUT IN)
+float4 trail_ps(TR_PS_INPUT IN) : SV_Target
 {
-    return float4(1, 0, 0, 1);
+    float4 res = float4(
+        txDiffuse.Sample(samLinear, IN.uv).xyz,
+    1);
+    return float4(res.xyz,1);
 }
 
 /*
