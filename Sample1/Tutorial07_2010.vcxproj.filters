@@ -39,6 +39,9 @@
     <Filter Include="TestProject\PostEffects\DOF">
       <UniqueIdentifier>{ce9d0931-ea5b-496f-887f-df133605f87b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="FW\NVG">
+      <UniqueIdentifier>{2de9acde-4fa2-48ff-a1a2-71f8c49db950}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dxapp.cpp">
@@ -92,6 +95,9 @@
     </ClCompile>
     <ClCompile Include="DOF.cpp">
       <Filter>TestProject\PostEffects\DOF</Filter>
+    </ClCompile>
+    <ClCompile Include="NVG\nanovg.cpp">
+      <Filter>FW\NVG</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -155,6 +161,36 @@
     <ClInclude Include="FETTShaders.h">
       <Filter>FW</Filter>
     </ClInclude>
+    <ClInclude Include="NVG\D3D11PixelShader.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\D3D11PixelShaderAA.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\D3D11VertexShader.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\fontstash.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\nanovg.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\nanovg_d3d11.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\nanovg_gl.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\nanovg_gl_utils.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\stb_image.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
+    <ClInclude Include="NVG\stb_truetype.h">
+      <Filter>FW\NVG</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="TestProjectShader.fx">
@@ -186,5 +222,19 @@
     <Text Include="VertexFormatsInitializer.fx">
       <Filter>FW\VertexFormat</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="NVG\D3D11PixelShader.hlsl">
+      <Filter>FW\NVG</Filter>
+    </FxCompile>
+    <FxCompile Include="NVG\D3D11PixelShaderAA.hlsl">
+      <Filter>FW\NVG</Filter>
+    </FxCompile>
+    <FxCompile Include="NVG\D3D11PixelShaderNoAA.hlsl">
+      <Filter>FW\NVG</Filter>
+    </FxCompile>
+    <FxCompile Include="NVG\D3D11VertexShader.hlsl">
+      <Filter>FW\NVG</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

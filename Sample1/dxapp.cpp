@@ -255,7 +255,7 @@ HRESULT DXApp::CreateMainGBuffer()
 	hr = mDevice->CreateShaderResourceView(mDepthStencil, &shaderResourceViewDesc, &mDepthStencilRV);
 	V_RETURN(hr);
 
-
+    return S_OK;
 }
 
 void DXApp::handleInput()
@@ -336,9 +336,6 @@ HRESULT DXApp::PreRender()
         lastFrameTime = getCurrentComputerTime();
     }
     currentFrame++;
-
-    if (currentFrame % 1000 == 0)
-        FUtil::Log("Time: %.3f\n", (float)deltaTime);
 
     this->FrameMove();
 

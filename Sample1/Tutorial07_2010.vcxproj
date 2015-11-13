@@ -402,6 +402,7 @@
     <ClCompile Include="HBAOPostEffect.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MathHelper.cpp" />
+    <ClCompile Include="NVG\nanovg.cpp" />
     <ClCompile Include="PassthruPostEffect.cpp" />
     <ClCompile Include="PostEffect.cpp" />
     <ClCompile Include="RenderTarget.cpp" />
@@ -425,6 +426,16 @@
     <ClInclude Include="FUtil.h" />
     <ClInclude Include="HBAOPostEffect.h" />
     <ClInclude Include="MathHelper.h" />
+    <ClInclude Include="NVG\D3D11PixelShader.h" />
+    <ClInclude Include="NVG\D3D11PixelShaderAA.h" />
+    <ClInclude Include="NVG\D3D11VertexShader.h" />
+    <ClInclude Include="NVG\fontstash.h" />
+    <ClInclude Include="NVG\nanovg.h" />
+    <ClInclude Include="NVG\nanovg_d3d11.h" />
+    <ClInclude Include="NVG\nanovg_gl.h" />
+    <ClInclude Include="NVG\nanovg_gl_utils.h" />
+    <ClInclude Include="NVG\stb_image.h" />
+    <ClInclude Include="NVG\stb_truetype.h" />
     <ClInclude Include="PassthruPostEffect.h" />
     <ClInclude Include="PostEffect.h" />
     <ClInclude Include="RenderTarget.h" />
@@ -469,6 +480,20 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="NVG\D3D11PixelShader.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="NVG\D3D11PixelShaderAA.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="NVG\D3D11PixelShaderNoAA.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="NVG\D3D11VertexShader.hlsl">
       <FileType>Document</FileType>
     </None>
   </ItemGroup>

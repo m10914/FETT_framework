@@ -92,7 +92,7 @@ public:
     static ID3D11DeviceContext* GetContext() { if (!Instance) return NULL; return Instance->mImmediateContext; };
     static DXApp* Instance;
 
-    XMFLOAT2 getRenderTargetSize() { return XMFLOAT2(swapChainDesc.BufferDesc.Width, swapChainDesc.BufferDesc.Height); }
+    XMFLOAT2 getRenderTargetSize() { return XMFLOAT2((float)swapChainDesc.BufferDesc.Width, (float)swapChainDesc.BufferDesc.Height); }
 
     void resetRenderTarget();
 

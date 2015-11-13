@@ -39,6 +39,9 @@
 #include "DOF.h"
 
 
+class NVGcontext;
+
+
 //--------------------------------------------------------------------------------------
 // Structures
 //--------------------------------------------------------------------------------------
@@ -133,6 +136,8 @@ private:
     CBChangesEveryFrame cb;
     CBforDeferredPass mMemBufferForDeferredPass;
 
+    NVGcontext* vg = NULL;
+
 public:
 	TestProject();
 	~TestProject();
@@ -155,6 +160,8 @@ protected:
 
     void _renderSceneObjects(bool bPlane = true, bool bCubes = true);
     void _renderTrails();
+
+    void _renderGui();
 
 	virtual HRESULT RenderScene() override;
 	virtual HRESULT InitScene() override;

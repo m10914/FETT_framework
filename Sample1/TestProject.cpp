@@ -7,9 +7,22 @@
 
 #include "TestProject.h"
 
+#include <sstream>
+#include <iostream>
 #include "camera.h"
 #include "FPCube.h"
 #include "FPPlane.h"
+
+#include "camera.h"
+
+//nvg
+#include "NVG/nanovg.h"
+#define NANOVG_D3D11_IMPLEMENTATION
+#define COBJMACROS // This example is in c, so we use the COM macros
+#define INITGUID
+#include "NVG/nanovg_d3d11.h"
+
+
 
 
 DXApp* initApplication()
@@ -58,27 +71,27 @@ HRESULT TestProject::FrameMove()
     XMFLOAT3 offset = XMFLOAT3(0,0,0);
     if(isKeyDown(DIK_W))
     {
-        offset.x += deltaTime * 0.001;
+        offset.x += (float)deltaTime * 0.001f;
     }
     if(isKeyDown(DIK_S))
     {
-        offset.x -= deltaTime * 0.001;
+        offset.x -= (float)deltaTime * 0.001f;
     }
     if(isKeyDown(DIK_A))
     {
-        offset.z += deltaTime * 0.001;
+        offset.z += (float)deltaTime * 0.001f;
     }
     if(isKeyDown(DIK_D))
     {
-        offset.z -= deltaTime * 0.001;
+        offset.z -= (float)deltaTime * 0.001f;
     }
     if(isKeyDown(DIK_E))
     {
-        offset.y += deltaTime * 0.001;
+        offset.y += (float)deltaTime * 0.001f;
     }
     if(isKeyDown(DIK_Q))
     {
-        offset.y -= deltaTime * 0.001;
+        offset.y -= (float)deltaTime * 0.001f;
     }
 
 
@@ -91,18 +104,20 @@ HRESULT TestProject::FrameMove()
         mouseDX = 0;
         mouseDY = 0;
         if(isKeyDown(DIK_I))
-            mouseDY += deltaTime * 5.0f;
+            mouseDY += LONG((float)deltaTime * 5.0f);
         if(isKeyDown(DIK_K))
-            mouseDY -= deltaTime * 5.0f;
+            mouseDY -= LONG((float)deltaTime * 5.0f);
         if(isKeyDown(DIK_J))
-            mouseDX -= deltaTime * 5.0f;
+            mouseDX -= LONG((float)deltaTime * 5.0f);
         if(isKeyDown(DIK_L))
-            mouseDX += deltaTime * 5.0f;
+            mouseDX += LONG((float)deltaTime * 5.0f);
     }
 
 	// update camera and lightsource
     if(mCurrentControlState == CS_Default)
-        mainCamera.FrameMove(offset, XMFLOAT3(mouseDX, mouseDY, mouseDZ));
+        mainCamera.FrameMove(
+            offset, 
+            XMFLOAT3((float)mouseDX, (float)mouseDY, (float)mouseDZ));
     else
         mainCamera.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(0,0,0));
 
@@ -112,7 +127,9 @@ HRESULT TestProject::FrameMove()
 	}
 
 	if (mCurrentControlState == CS_MoveLight)
-		mDirLight.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(mouseDX, mouseDY, mouseDZ));
+        mDirLight.FrameMove(
+            XMFLOAT3(0, 0, 0), 
+            XMFLOAT3((float)mouseDX, (float)mouseDY, (float)mouseDZ));
 	else
         mDirLight.FrameMove(XMFLOAT3(0,0,0), XMFLOAT3(0, 0, 0));
 
@@ -122,9 +139,9 @@ HRESULT TestProject::FrameMove()
     //---------------
 
     // Modify the color based on time
-    mVMeshColor.x = ( sinf( totalTime * 0.001f ) + 1.0f ) * 0.5f;
-    mVMeshColor.y = ( cosf( totalTime * 0.003f ) + 1.0f ) * 0.5f;
-    mVMeshColor.z = ( sinf( totalTime * 0.005f ) + 1.0f ) * 0.5f;
+    mVMeshColor.x = ( sinf( (float)totalTime * 0.001f ) + 1.0f ) * 0.5f;
+    mVMeshColor.y = ( cosf( (float)totalTime * 0.003f ) + 1.0f ) * 0.5f;
+    mVMeshColor.z = ( sinf( (float)totalTime * 0.005f ) + 1.0f ) * 0.5f;
     cb.vMeshColor = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
 
 
@@ -201,8 +218,9 @@ void TestProject::_renderTrails()
     VertexFormatPPTT vertices[numOfVerts];
     for (int i = 0; i < numOfVerts; i++)
     {
-        vertices[i].Pos = XMFLOAT3(i, i, i);
-        vertices[i].uv = XMFLOAT2(i, i);
+        float fi = float(i);
+        vertices[i].Pos = XMFLOAT3(fi, fi, fi);
+        vertices[i].uv = XMFLOAT2(fi, fi);
     }
 
     //generate upvecs
@@ -288,12 +306,51 @@ HRESULT TestProject::RenderScene()
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
 	mImmediateContext->PSSetShaderResources( 0, 3, view );
 
+    _renderGui();
+
 	return S_OK;
 }
 
 
 
+void TestProject::_renderGui()
+{
+    XMFLOAT2 size = getRenderTargetSize();
+    nvgBeginFrame(vg, size.x, size.y, 1.0f);
 
+
+    //----------------------------
+    // MSPF
+    static int counter = 0;
+    static double deltas = 0;
+    static double lastDelta = 0;
+    deltas += deltaTime;
+    counter++;
+
+    if (deltas > 100)
+    {
+        lastDelta = deltas / counter;
+        deltas = 0;
+        counter = 0;
+    }
+
+    std::stringstream mystring;
+    mystring << "MSPF: " << lastDelta;
+    std::string ms = mystring.str();
+
+    nvgFontSize(vg, 18.0f);
+    nvgFontFace(vg, "sans");
+    nvgFillColor(vg, nvgRGBA(255, 255, 255, 255));
+
+    nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+    nvgText(vg, 10, 10, ms.c_str(), NULL);
+
+
+    //----------------------------
+
+
+    nvgEndFrame(vg);
+}
 
 
 void TestProject::_renderSceneToGBuffer()
@@ -348,6 +405,7 @@ void TestProject::_renderSceneToGBuffer()
     mSecondRT->deactivate();
 
     D3DPERF_EndEvent();
+
 }
 
 
@@ -445,6 +503,7 @@ void TestProject::_renderPoints(LPD3DDeviceContext context, LPD3D11Device device
 
     //create buffers
     HRESULT hr;
+    XMMATRIX mat;
 
     VertexFormatPT vertices[16];
 
@@ -472,7 +531,7 @@ void TestProject::_renderPoints(LPD3DDeviceContext context, LPD3D11Device device
         goto render_points_end;
 
     //render buffer with current camera
-    XMMATRIX mat = XMMatrixTranslation(0,0,0);
+    mat = XMMatrixTranslation(0,0,0);
     cb.mWorld = XMMatrixTranspose( mat );
     context->UpdateSubresource( mCBChangesEveryFrame, 0, NULL, &cb, 0, 0 );
 
@@ -501,6 +560,18 @@ render_points_end:
 HRESULT TestProject::InitScene()
 {
 	HRESULT hr;
+
+
+    // init NVG
+    vg = nvgCreateD3D11(GFXDEVICE, NVG_ANTIALIAS | NVG_STENCIL_STROKES);
+    
+    int font;
+    font = nvgCreateFont(vg, "sans", "fonts/Roboto-Regular.ttf");
+    if (font == -1) {
+        printf("Could not add font regular.\n");
+        return -1;
+    }
+
 
     // create render target
     mSecondRT = std::make_unique<RenderTarget>(

@@ -96,6 +96,8 @@ HRESULT FUtil::InitPixelShader(char* fileName, LPCSTR entryPoint, LPCTSTR shader
     blob->Release();
     if( FAILED( hr ) )
         return hr;
+
+    return S_OK;
 }
 
 HRESULT FUtil::InitVertexShader(char* fileName, LPCSTR entryPoint, LPCTSTR shaderModel, ID3D11VertexShader** shaderPtr)
@@ -118,6 +120,8 @@ HRESULT FUtil::InitVertexShader(char* fileName, LPCSTR entryPoint, LPCTSTR shade
         blob->Release();
         return hr;
     }
+
+    return S_OK;
 }
 
 
@@ -164,4 +168,6 @@ HRESULT FUtil::InitGeometryShader(char* fileName, LPCSTR entryPoint, LPCTSTR sha
         blob->Release();
         return hr;
     }
+
+    return S_OK;
 }
