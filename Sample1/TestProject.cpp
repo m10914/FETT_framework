@@ -221,11 +221,11 @@ HRESULT TestProject::FrameMove()
     //-----------------------------------------------
     // update objects
 
-    oceanDesc.update(totalTime);
+    //oceanDesc.update(totalTime);
 
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 0, 0, 0), L"Update surface");
-    surface.Update(totalTime, deltaTime);
-    D3DPERF_EndEvent();
+    //D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 0, 0, 0), L"Update surface");
+    //surface.Update(totalTime, deltaTime);
+    //D3DPERF_EndEvent();
 
     return S_OK;
 }
@@ -247,7 +247,7 @@ HRESULT TestProject::RenderScene()
     //--------------------------------------------------------------------
     // TO TEXTURE
 
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 255, 0), L"RT render");
+    //D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 255, 0), L"RT render");
 
 	// set RT and clear it
 	mImmediateContext->OMSetRenderTargets( 1, &mRTSecondRTV, mDSSecondDSV);
@@ -273,9 +273,9 @@ HRESULT TestProject::RenderScene()
 
 	// render cubes
     // it's the same cube actually
-	if(true)
+	if(false)
     {
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
+        //D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
 
         cube.position = XMFLOAT3(0, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
@@ -286,25 +286,30 @@ HRESULT TestProject::RenderScene()
         cube.position = XMFLOAT3(-3, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
-        D3DPERF_EndEvent();
+        //D3DPERF_EndEvent();
 	}
 
+    if(false)
+    {
+        simpSurf.position = XMFLOAT3(0, 0, 0);
+        FUtil::RenderPrimitive( &simpSurf, mImmediateContext, cb, mCBChangesEveryFrame );
+    }
 
 
-    D3DPERF_EndEvent();
+    //D3DPERF_EndEvent();
 
 
 	//--------------------------------------------------------------------
 	// TO BACKBUFFER
 
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Backbuffer render");
+    //D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Backbuffer render");
 
 	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView);
 
 	// render cubes
-	if(true){
-
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
+	if(false)
+    {
+        //D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
 
         mImmediateContext->RSSetState( mRSOrdinary );
 
@@ -318,12 +323,20 @@ HRESULT TestProject::RenderScene()
         cube.position = XMFLOAT3(-3, 0, 0);
         FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
 
-        D3DPERF_EndEvent();
+        //D3DPERF_EndEvent();
+    }
+    
+    if(true)
+    {
+        mImmediateContext->RSSetState(mRSWireframe);
+
+        simpSurf.position = XMFLOAT3(0, 0, 0);
+        FUtil::RenderPrimitive(&simpSurf, mImmediateContext, cb, mCBChangesEveryFrame);
     }
 
 
     // render cameras frustums
-    if(!bViewCameraMain)
+    if(false)//!bViewCameraMain)
     {
         XMVECTOR det;
         XMMATRIX invViewProj = mainCamera.getViewMatrix() * mainCamera.getProjMatrix();
@@ -353,7 +366,7 @@ HRESULT TestProject::RenderScene()
     }
 
     // projected grid (along with water shader)
-    D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Water grid");
+    /*//D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Water grid");
     CBForCS cbSurface;
     bool bGrid = surface.fillConstantBuffer(cbSurface, totalTime);
     if(bGrid)
@@ -429,14 +442,15 @@ HRESULT TestProject::RenderScene()
 
         mImmediateContext->RSSetState(mRSOrdinary);
     }
-    D3DPERF_EndEvent();
+    //D3DPERF_EndEvent();*/
 
 
-    //quads   
+    //quads
+    if(false)
     {
         mImmediateContext->IASetInputLayout( mLayoutPT );
 
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 0, 0), L"Quads");
+        //D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 0, 0, 0), L"Quads");
 
         mImmediateContext->PSSetShader(mPixelShaderQuad, NULL, 0);
         mImmediateContext->VSSetShader(mVertexShaderQuad, NULL, 0);
@@ -454,14 +468,14 @@ HRESULT TestProject::RenderScene()
         srviews[0] = NULL;
         mImmediateContext->PSSetShaderResources(0, 1, srviews);
 
-        D3DPERF_EndEvent();
+        //D3DPERF_EndEvent();
     }
     
 
     // SSR plane
-    if(true)
+    if(false)
     {
-        D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 255, 0), L"SSR");
+        //D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 255, 0), L"SSR");
 
         mImmediateContext->IASetInputLayout( mLayoutPT );
 
@@ -476,7 +490,7 @@ HRESULT TestProject::RenderScene()
         plane.scale = XMFLOAT3(10, 1, 10);
         //FUtil::RenderPrimitive( &plane, mImmediateContext, cb, mCBChangesEveryFrame );
 
-        D3DPERF_EndEvent();
+        //D3DPERF_EndEvent();
     }
 
 
@@ -484,7 +498,7 @@ HRESULT TestProject::RenderScene()
 	ID3D11ShaderResourceView* view[] = { NULL, NULL, NULL };
 	mImmediateContext->PSSetShaderResources( 0, 3, view );
 
-    D3DPERF_EndEvent();
+    //D3DPERF_EndEvent();
 
 	return S_OK;
 }
@@ -691,6 +705,7 @@ HRESULT TestProject::InitScene()
 	// create objects
 	cube.Init(mDevice);
 	plane.Init(mDevice);
+    simpSurf.Init(mDevice);
 
     surface.Init(mDevice, &oceanDesc);
     surface.setCamera(&mainCamera);
@@ -761,10 +776,10 @@ HRESULT TestProject::InitScene()
 
 
     // init camera
-    mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 1.0, 100.0);
+    mainCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 1.0, 10000.0);
     mainCamera.setOrbitParams( 15, XMFLOAT3(0,0,0) );
 
-    observeCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.01, 1000.0);
+    observeCamera.setProjectionParams(XM_PIDIV4, swapChainDesc.BufferDesc.Width / swapChainDesc.BufferDesc.Height, 0.01, 10000.0);
     observeCamera.setOrbitParams( 25, XMFLOAT3(0,0,0) );
 
 
@@ -938,6 +953,7 @@ HRESULT TestProject::ReleaseScene()
 {
 	cube.Release();
 	plane.Release();
+    simpSurf.Release();
 
 	SAFE_RELEASE(mVertexShader);
 	SAFE_RELEASE(mPixelShader);

@@ -3,7 +3,9 @@
 
 #include "FUtil.h"
 #include "FPrimitive.h"
-#include "cstdio";
+#include "cstdio"
+
+#pragma comment(lib, "legacy_stdio_definitions.lib")
 
 void FUtil::Log(char* format, ...)
 {

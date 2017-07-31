@@ -27,6 +27,9 @@
     <Filter Include="TestProject\FFT">
       <UniqueIdentifier>{c76e7d8b-d688-431c-a330-058d6e1f57d8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TestProject\triangle">
+      <UniqueIdentifier>{e5b49792-7a43-4c2d-b062-da43665bce23}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dxapp.cpp">
@@ -103,6 +106,9 @@
     </ClInclude>
     <ClInclude Include="FFT\ocean_simulator.h">
       <Filter>TestProject\FFT</Filter>
+    </ClInclude>
+    <ClInclude Include="Triangulator\delaunay.h">
+      <Filter>TestProject\triangle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

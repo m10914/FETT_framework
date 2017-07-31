@@ -96,7 +96,19 @@ PS_INPUT VS( VS_INPUT input )
 
 float4 PS( PS_INPUT input) : SV_Target
 {
-    return float4(txDiffuse.Sample( samLinear, input.Tex ).xyz, 1) * vMeshColor;
+    float4 col;
+    if(input.Tex.x > 0.9)
+        col = float4(1,0,0,1);
+    else if(input.Tex.x > 0.8)
+        col = float4(0,0,1,1);
+    else if(input.Tex.x > 0.7)
+        col = float4(0,1,0,1);
+    else
+        col = float4(0.4,0.4,0.4,1);
+
+    return col;
+    
+    //return float4(txDiffuse.Sample( samLinear, input.Tex ).xyz, 1) * vMeshColor;
 }
 
 

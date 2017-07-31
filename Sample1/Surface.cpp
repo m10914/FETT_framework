@@ -1,13 +1,399 @@
-/*
-================================================================
-
-
-================================================================
-*/
-
 
 #include "Surface.h"
 #include "FUtil.h"
+
+#include <algorithm>
+#include <utility>
+#include <vector>
+#include <iostream>
+#include "Triangulator/delaunay.h"
+
+enum IM_DIR
+{
+    DIR_U,
+    DIR_V
+};
+
+void ImportanceMeasure(VertexFormatPT* vertices, IM_DIR direction, int stage, int start, int end, float& localMax, int iter = 0)
+{
+    if(end - start <= 1)
+    {
+        return;
+    }
+
+    Vector2 vert0;
+    Vector2 vert1;
+
+    if(direction == DIR_U)
+    {
+        vert0 = Vector2(vertices[stage*RAND_DIM + start].Pos.z, vertices[stage*RAND_DIM + start].Pos.y, 0.0f);
+        vert1 = Vector2(vertices[stage*RAND_DIM + end].Pos.z, vertices[stage*RAND_DIM + end].Pos.y, 0.0f);
+    }
+    else
+    {
+        vert0 = Vector2(vertices[start*RAND_DIM + stage].Pos.x, vertices[start*RAND_DIM + stage].Pos.y, 0.0f);
+        vert1 = Vector2(vertices[end*RAND_DIM + stage].Pos.x, vertices[end*RAND_DIM + stage].Pos.y, 0.0f);
+    }
+
+    float maxDist = -1.0f;
+    int ptInd = 0;
+    for(int i = start + 1; i < end;i++)
+    {
+        VertexFormatPT* vt;
+        float dist;
+        Vector2 tmpVec;
+
+        if(direction == DIR_U)
+        {
+            vt = &vertices[stage*RAND_DIM + i];
+            tmpVec = Vector2(vt->Pos.z, vt->Pos.y, 0.0f);
+        }
+        else
+        {
+            vt = &vertices[i*RAND_DIM + stage];
+            tmpVec = Vector2(vt->Pos.x, vt->Pos.y, 0.0f);
+        }
+       
+        dist = distFromPointToSegment(tmpVec, vert0, vert1);
+  
+        if(dist > maxDist)
+        {
+            maxDist = dist;
+            ptInd = i;
+        }
+    }
+
+    VertexFormatPT* vt;
+    if(direction == DIR_U)
+    {
+        vt = &vertices[stage*RAND_DIM + ptInd];
+        vt->Tex.x = maxDist;
+    }
+    else
+    {
+        vt = &vertices[ptInd*RAND_DIM + stage];
+        vt->Tex.y = maxDist;
+    }
+    
+    localMax = max(localMax, maxDist);
+
+    if(ptInd - start > 1) ImportanceMeasure(vertices, direction, stage, start, ptInd, localMax, iter+1);
+    if(end - ptInd > 1)   ImportanceMeasure(vertices, direction, stage, ptInd, end, localMax, iter+1);
+
+    return;
+}
+
+HRESULT FSimpleSurface::Init(LPD3D11Device device)
+{
+    // fill random positions
+    std::vector<VertexFormatPT> vertices;
+    vertices.resize(NUM_RAND_POS);
+    float miny = 99999.f, maxy = -99999.f;
+    for(int i = 0; i < NUM_RAND_POS; ++i)
+    {
+        int indU = (i%RAND_DIM);
+        int indV = i/RAND_DIM;
+
+        vertices[i].Pos = randpos[i];
+        //vertices[i].Pos.y = randpos[indV*RAND_DIM].y;
+        //vertices[i].Pos.y = randpos[indU].y;
+        miny = min(vertices[i].Pos.y, miny);
+        maxy = max(vertices[i].Pos.y, maxy);
+
+        vertices[i].Pos.x -= 0.5f;
+        vertices[i].Pos.z -= 0.5f;
+        vertices[i].Pos.x *= 20.0f;
+        vertices[i].Pos.z *= 20.0f;
+
+        vertices[i].Tex = XMFLOAT2(0,0);//(i%RAND_DIM) / float(RAND_DIM), ceil(i/RAND_DIM) / float(RAND_DIM));
+    }
+    float extentY = maxy - miny;
+
+    // blur by y
+    /*std::vector<VertexFormatPT> vertsBlurred;
+    vertsBlurred.resize(NUM_RAND_POS);
+    float coeffs[6] = { 0.382925f, 0.24173f, 0.060598f, 0.005977f, 0.000229f, 0.000003f };
+    float blurredY = 0;
+    for(int i=0; i < NUM_RAND_POS; ++i)
+    {
+        vertsBlurred[i] = vertices[i];
+
+        int indU = i%RAND_DIM;
+        int indV = i/RAND_DIM;
+
+        blurredY = coeffs[0] * vertices[i].Pos.y;
+        for(int j = 0; j < 5; ++j)
+        {
+            int indPosU = min(indU + j + 1, RAND_DIM - 1);
+            int indNegU = max(indU - j - 1, 0);
+            int indPosV = min(indV + j + 1, RAND_DIM - 1);
+            int indNegV = max(indV - j - 1, 0);
+
+            blurredY += static_cast<float>(vertices[indNegU * RAND_DIM + indV].Pos.y + vertices[indPosU * RAND_DIM + indV].Pos.y)*coeffs[j+1];// * 0.5f;
+            //blurredY += static_cast<float>(vertices[indU * RAND_DIM + indPosV].Pos.y + vertices[indU * RAND_DIM + indNegV].Pos.y)*coeffs[j+1] * 0.5f;
+        }
+        vertsBlurred[i].Pos.y = blurredY;
+    }*/
+
+
+    float globalMax = 0.0f;
+    for(int i=0; i < RAND_DIM; ++i)
+    {
+        ImportanceMeasure(vertices.data(), DIR_U, i, 0, RAND_DIM - 1, globalMax);
+    }
+    for(int i = 0; i < RAND_DIM; ++i)
+    {
+        ImportanceMeasure(vertices.data(), DIR_V, i, 0, RAND_DIM - 1, globalMax);
+    }
+    for(int i=0; i < NUM_RAND_POS; ++i)
+    {
+        vertices[i].Tex.x /= globalMax;
+        vertices[i].Tex.y /= globalMax;
+        vertices[i].Tex.x = max(vertices[i].Tex.x, vertices[i].Tex.y);
+        //vertices[i].Tex.x = vertices[i].Tex.y;
+    }
+
+    // borders importance
+    for(int i = 0; i < NUM_RAND_POS; ++i)
+    {
+        int indU = i%RAND_DIM;
+        int indV = i/RAND_DIM;
+
+        if(indU == 0 || indU == RAND_DIM-1 || indV == 0 || indV == RAND_DIM-1)
+        {
+            vertices[i].Tex.x = 1.0f;
+        }
+    }
+
+    for(int i = 0; i < NUM_RAND_POS; ++i)
+    {
+        vertices[i].Pos.y = 4.0f * ((vertices[i].Pos.y-miny) / (maxy - miny)-0.5f);
+    }
+
+    // weight VERTICES
+//     for(int i = 0; i < NUM_RAND_POS; ++i)
+//     {
+//         int indX = i%RAND_DIM;
+//         int indY = i / RAND_DIM;
+//         bool isBorder = (indX == 0 || indX == RAND_DIM - 1 || indY == 0 || indY == RAND_DIM - 1);
+//         if(isBorder)
+//         {
+//             vertices[i].Tex.x = 1.0f;
+//         }
+//         else
+//         {
+//             /*VertexFormatPT neighbors[4]; //left right top bottom
+//             neighbors[0] = vertices[i - 1];
+//             neighbors[1] = vertices[i + 1];
+//             neighbors[2] = vertices[i - RAND_DIM];
+//             neighbors[3] = vertices[i + RAND_DIM];
+//             vertices[i].Tex.x = 0;
+//             vertices[i].Tex.x = max(
+//                 fabs((neighbors[0].Pos.y + (neighbors[1].Pos.y - neighbors[0].Pos.y)*0.5f) - vertices[i].Pos.y),
+//                 fabs((neighbors[2].Pos.y + (neighbors[3].Pos.y - neighbors[2].Pos.y)*0.5f) - vertices[i].Pos.y)
+//             ) / extentY;
+//             vertices[i].Tex.x *= 400.0f;
+//             vertices[i].Tex.x = min(1.0f, vertices[i].Tex.x);*/
+// 
+//             //vertices[i].Tex.x = pow(vertices[i].Tex.x / 10.0f, 16.0f) * 10.0f;
+//             
+//         }
+//     }
+
+    D3D11_SUBRESOURCE_DATA InitData;
+    ZeroMemory(&InitData, sizeof(InitData));
+
+    D3D11_BUFFER_DESC bd;
+    ZeroMemory(&bd, sizeof(bd));
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(VertexFormatPT) * NUM_RAND_POS;
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+
+    InitData.pSysMem = vertices.data();
+    HRESULT hr = device->CreateBuffer(&bd, &InitData, &mVertexBuffer);
+    if(FAILED(hr))
+        return hr;
+
+
+    CreateIndexBuffer(vertices.data(), device);
+
+    return S_OK;
+}
+
+
+void CreateConnectivity(std::vector<WORD>& indices, std::vector<VertexFormatPT>& verts)
+{
+    
+}
+
+bool Vector2ImportanceCmp(Vector2 a, Vector2 b) {
+    return a.importance > b.importance;
+}
+
+void FSimpleSurface::CreateIndexBuffer(VertexFormatPT* vertices, LPD3D11Device device)
+{
+    std::vector<WORD> indices;
+
+//#define FULL_IND
+#ifdef FULL_IND
+
+    // regular for test
+    numIndices = 6 * (RAND_DIM - 1) * (RAND_DIM - 1);
+    {
+        for(int v = 0; v < (RAND_DIM - 1); v++) {
+            for(int u = 0; u < (RAND_DIM - 1); u++) {
+
+                // face 1 |/
+                indices.push_back(v*RAND_DIM + u);
+                indices.push_back(v*RAND_DIM + u + 1);
+                indices.push_back((v + 1)*RAND_DIM + u);
+
+                // face 2 /|
+                indices.push_back((v + 1)*RAND_DIM + u);
+                indices.push_back(v*RAND_DIM + u + 1);
+                indices.push_back((v + 1)*RAND_DIM + u + 1);
+            }
+        }
+    }
+
+#else
+
+    int reduction = 16; //lod 4
+    int redSq = pow(3, 4);
+
+    //sort vertices
+    std::vector<Vector2> newVerts;
+    newVerts.reserve(NUM_RAND_POS);
+    XMFLOAT2 boundsX;
+    XMFLOAT2 boundsY;
+    boundsX.x = vertices[0].Pos.x;
+    boundsY.x = vertices[0].Pos.z;
+    boundsX.y = vertices[NUM_RAND_POS - 1].Pos.x;
+    boundsY.y = vertices[NUM_RAND_POS - 1].Pos.z;
+
+    if(boundsX.x != boundsY.x || boundsX.y != boundsY.y)
+    {
+        FUtil::Log("shit");
+    }
+
+    for(int i = 0; i < NUM_RAND_POS; ++i)
+    {
+        // preliminary border skipping
+        int indx, indy;
+        indx = i%RAND_DIM;
+        indy = i / RAND_DIM;
+        bool isBorder = (indx == 0 || indx == (RAND_DIM - 1)) || (indy == 0 || indy == (RAND_DIM - 1));
+        if(isBorder)
+        {
+            if((indx % reduction) != 0 || (indy % reduction) != 0) continue;
+        }
+
+        newVerts.push_back(Vector2(vertices[i].Pos.x, vertices[i].Pos.z, vertices[i].Tex.x));
+    }
+ 
+    std::sort(newVerts.begin(), newVerts.end(), Vector2ImportanceCmp);
+    newVerts.resize(newVerts.size() / redSq);
+ 
+    
+    //tmp - border only
+//     float dz = vertices[0].Pos.z - vertices[1].Pos.z;
+//     for(int i = 0; i < RAND_DIM; ++i)
+//     {
+//         newVerts.push_back(Vector2(vertices[i*RAND_DIM + 1].Pos.x, vertices[i*RAND_DIM + 1].Pos.z, vertices[i*RAND_DIM + 1].Tex.x));
+//     }
+// 
+//     std::sort(newVerts.begin(), newVerts.end(), Vector2ImportanceCmp);
+//     newVerts.resize(newVerts.size() / reduction);
+// 
+//     int sz = newVerts.size();
+//     for(int i = 0; i < sz; ++i)
+//     {
+//         newVerts.push_back(Vector2(newVerts[i].x, newVerts[i].y - dz, newVerts[i].importance));
+//     }
+    
+
+    LARGE_INTEGER frequency;        // ticks per second
+    LARGE_INTEGER t1, t2;           // ticks
+    double elapsedTime;
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&t1);
+
+    TerrainRetriangulator terrTri(newVerts, 0, newVerts.size());
+    std::list<Triangle> tris = terrTri.getTriangles();
+
+    QueryPerformanceCounter(&t2);
+    elapsedTime = (t2.QuadPart - t1.QuadPart) * 1000.0 / frequency.QuadPart;
+    FUtil::Log("\t't[INFO] : Triangulation time: %.0f sec\n", elapsedTime / 1000.0f);
+
+
+    std::list<Triangle>::iterator t;
+    int i = 0;
+    for(t = begin(tris); t != end(tris); t++, i++)
+    {
+        WORD indGen[3];
+
+        indGen[0] = (t->p1.y - boundsX.x) / (boundsX.y - boundsX.x) * (RAND_DIM - 1) + (t->p1.x - boundsY.x) / (boundsY.y - boundsY.x) * (RAND_DIM - 1) * RAND_DIM;
+        indGen[1] = (t->p2.y - boundsX.x) / (boundsX.y - boundsX.x) * (RAND_DIM - 1) + (t->p2.x - boundsY.x) / (boundsY.y - boundsY.x) * (RAND_DIM - 1) * RAND_DIM;
+        indGen[2] = (t->p3.y - boundsX.x) / (boundsX.y - boundsX.x) * (RAND_DIM - 1) + (t->p3.x - boundsY.x) / (boundsY.y - boundsY.x) * (RAND_DIM - 1) * RAND_DIM;
+
+        indices.push_back(indGen[0]);
+        indices.push_back(indGen[1]);
+        indices.push_back(indGen[2]);
+
+        if(indGen[0] > NUM_RAND_POS - 1 || indGen[1] > NUM_RAND_POS - 1 || indGen[2] > NUM_RAND_POS - 1)
+        {
+            return;
+        }
+    }
+    numIndices = indices.size();
+
+#endif
+
+    // physical creation
+    D3D11_BUFFER_DESC bd;
+    ZeroMemory(&bd, sizeof(bd));
+    bd.MiscFlags = 0;
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(WORD) * indices.size();
+    bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA InitData;
+    ZeroMemory(&InitData, sizeof(InitData));
+    InitData.pSysMem = indices.data();
+    HRESULT hr = device->CreateBuffer(&bd, &InitData, &mIndexBuffer);
+}
+
+
+HRESULT FSimpleSurface::Release()
+{
+    SAFE_RELEASE(mVertexBuffer);
+    SAFE_RELEASE(mIndexBuffer);
+
+    return S_OK;
+}
+
+HRESULT FSimpleSurface::Render(LPD3DDeviceContext context)
+{
+    // Set vertex buffer
+    UINT stride = sizeof(VertexFormatPT);
+    UINT offset = 0;
+    context->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &offset);
+
+    // Set index buffer
+    context->IASetIndexBuffer(mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+
+    // Set primitive topology
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // draw dat shit
+    context->DrawIndexed(numIndices, 0, 0);
+
+    return S_OK;
+}
+
+
 
 
 void OceanDescription::update(double appTime)

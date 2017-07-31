@@ -10,7 +10,6 @@
 #pragma warning(disable:4005)
 //#define _XM_NO_INTRINSICS_ 1
 
-
 #ifdef PROJ_TESTPROJECT
 
 #include <windows.h>
@@ -121,6 +120,7 @@ private:
 	FPCube	cube;
 	FPPlane	plane;
     FSurface surface;
+    FSimpleSurface simpSurf;
 
     CBChangesEveryFrame cb;
     OceanDescription oceanDesc;

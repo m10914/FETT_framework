@@ -413,7 +413,7 @@ void OceanSimulator::updateDisplacementMap(float time)
     // ---------------------------- H(0) -> H(t), D(x, t), D(y, t) --------------------------------
     // Compute shader
     {
-        D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Update spectrum");
+        //D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Update spectrum");
 
         m_pd3dImmediateContext->CSSetShader(m_pUpdateSpectrumCS, NULL, 0);
 
@@ -448,16 +448,16 @@ void OceanSimulator::updateDisplacementMap(float time)
         cs0_srvs[1] = NULL;
         m_pd3dImmediateContext->CSSetShaderResources(0, 2, cs0_srvs);
 
-        D3DPERF_EndEvent();
+        //D3DPERF_EndEvent();
     }
 
     // ------------------------------------ Perform FFT -------------------------------------------
     {
-        D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"FFT");
+        //D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"FFT");
 
         fft_512x512_c2c(&m_fft_plan, m_pUAV_Dxyz, m_pSRV_Dxyz, m_pSRV_Ht);
 
-        D3DPERF_EndEvent();
+        //D3DPERF_EndEvent();
     }
 
     // store old viewports, old targets etc
@@ -474,7 +474,7 @@ void OceanSimulator::updateDisplacementMap(float time)
     // --------------------------------- Wrap Dx, Dy and Dz ---------------------------------------
     // Push RT
     {
-        D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Normal foldings");
+        //D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Normal foldings");
  
         D3D11_VIEWPORT new_vp = { 0, 0, (float)m_param.dmap_dim, (float)m_param.dmap_dim, 0.0f, 1.0f };
         m_pd3dImmediateContext->RSSetViewports(1, &new_vp);
@@ -511,12 +511,12 @@ void OceanSimulator::updateDisplacementMap(float time)
         ps_srvs[0] = NULL;
         m_pd3dImmediateContext->PSSetShaderResources(0, 1, ps_srvs);
 
-        D3DPERF_EndEvent();
+        //D3DPERF_EndEvent();
     }
 
     // ----------------------------------- Generate Normal ----------------------------------------
     {
-        D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Normal foldings");
+        //D3DPERF_BeginEvent(D3DCOLOR_ARGB(255, 255, 255, 255), L"Normal foldings");
 
         // Set RT
         ID3D11RenderTargetView* rt_views[1] = { m_pGradientRTV };
@@ -548,7 +548,7 @@ void OceanSimulator::updateDisplacementMap(float time)
 
         m_pd3dImmediateContext->GenerateMips(m_pGradientSRV);
 
-        D3DPERF_EndEvent();
+        //D3DPERF_EndEvent();
     }
 }
 
