@@ -10,6 +10,8 @@
 #pragma warning(disable:4005)
 //#define _XM_NO_INTRINSICS_ 1
 
+#define PROJ_TESTPROJECT
+
 #ifdef PROJ_TESTPROJECT
 
 #include <windows.h>
@@ -130,7 +132,7 @@ public:
 	TestProject();
 	~TestProject();
 
-	void *operator new (unsigned int size)
+	void *operator new (size_t size)
 	{ return _mm_malloc(size, 16); }
 
 	void operator delete (void *p)
