@@ -101,7 +101,10 @@ protected:
 
 	ID3D11Device*                       mDevice;
 	ID3D11DeviceContext*                mImmediateContext;
+    ID3D11DeviceContext*                mDeferredContext;
 	IDXGISwapChain*                     mSwapChain;
+
+    ID3D11CommandList*                  mDeferredCommandList;
 
 	// main GBuffer
 	ID3D11RenderTargetView*             mRenderTargetView;

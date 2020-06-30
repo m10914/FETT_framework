@@ -237,11 +237,20 @@ HRESULT TestProject::FrameMove()
 */
 HRESULT TestProject::RenderScene()
 {
+    bool bDeferred = true;
+    ID3D11DeviceContext* context = mImmediateContext;
+
+    if(bDeferred)
+    {
+        context = mDeferredContext;
+        context->ClearState();
+    }
+
 	//setup common stuff
 	ID3D11SamplerState* aSamplers[] = { mSamplerLinear, mBackbufferSampler, mDepthSampler };
-	mImmediateContext->PSSetSamplers( 0, 3, aSamplers );
-    mImmediateContext->VSSetSamplers( 0, 3, aSamplers );
-    mImmediateContext->CSSetSamplers( 0, 3, aSamplers );
+    context->PSSetSamplers( 0, 3, aSamplers );
+    context->VSSetSamplers( 0, 3, aSamplers );
+    context->CSSetSamplers( 0, 3, aSamplers );
 
 
     //--------------------------------------------------------------------
@@ -250,25 +259,25 @@ HRESULT TestProject::RenderScene()
     //D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 255, 0), L"RT render");
 
 	// set RT and clear it
-	mImmediateContext->OMSetRenderTargets( 1, &mRTSecondRTV, mDSSecondDSV);
+    context->OMSetRenderTargets( 1, &mRTSecondRTV, mDSSecondDSV);
 	float ClearColor[4] = { 0.525f, 0.525f, 0.525f, 1.0f }; // red, green, blue, alpha
-	mImmediateContext->ClearRenderTargetView( mRTSecondRTV, ClearColor );
-	mImmediateContext->ClearDepthStencilView( mDSSecondDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
+    context->ClearRenderTargetView( mRTSecondRTV, ClearColor );
+    context->ClearDepthStencilView( mDSSecondDSV, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 
 
 
 	// initial preparation
-	mImmediateContext->IASetInputLayout( mLayoutPT );
+    context->IASetInputLayout( mLayoutPT );
 
-	mImmediateContext->VSSetShader( mVertexShader, NULL, 0 );
-	mImmediateContext->PSSetShader( mPixelShader, NULL, 0 );
+    context->VSSetShader( mVertexShader, NULL, 0 );
+    context->PSSetShader( mPixelShader, NULL, 0 );
 
-	mImmediateContext->VSSetConstantBuffers( 0, 1, &mCBChangesEveryFrame );
-	mImmediateContext->PSSetConstantBuffers( 0, 1, &mCBChangesEveryFrame );
+    context->VSSetConstantBuffers( 0, 1, &mCBChangesEveryFrame );
+    context->PSSetConstantBuffers( 0, 1, &mCBChangesEveryFrame );
 
-	mImmediateContext->PSSetShaderResources( 0, 1, &mTextureRV );
-	mImmediateContext->PSSetShaderResources( 1, 1, &mTextureRV );
-	mImmediateContext->PSSetShaderResources( 2, 1, &mTextureRV );
+    context->PSSetShaderResources( 0, 1, &mTextureRV );
+    context->PSSetShaderResources( 1, 1, &mTextureRV );
+    context->PSSetShaderResources( 2, 1, &mTextureRV );
 	
 
 	// render cubes
@@ -278,13 +287,13 @@ HRESULT TestProject::RenderScene()
         //D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
 
         cube.position = XMFLOAT3(0, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+        FUtil::RenderPrimitive( &cube, context, cb, mCBChangesEveryFrame );
 
 		cube.position = XMFLOAT3(3, 0, 0);
-		FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+		FUtil::RenderPrimitive( &cube, context, cb, mCBChangesEveryFrame );
 
         cube.position = XMFLOAT3(-3, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+        FUtil::RenderPrimitive( &cube, context, cb, mCBChangesEveryFrame );
 
         //D3DPERF_EndEvent();
 	}
@@ -292,7 +301,7 @@ HRESULT TestProject::RenderScene()
     if(false)
     {
         simpSurf.position = XMFLOAT3(0, 0, 0);
-        FUtil::RenderPrimitive( &simpSurf, mImmediateContext, cb, mCBChangesEveryFrame );
+        FUtil::RenderPrimitive( &simpSurf, context, cb, mCBChangesEveryFrame );
     }
 
 
@@ -304,48 +313,48 @@ HRESULT TestProject::RenderScene()
 
     //D3DPERF_BeginEvent(D3DCOLOR_RGBA(255, 255, 222, 0), L"Backbuffer render");
 
-	mImmediateContext->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView);
+    context->OMSetRenderTargets( 1, &mRenderTargetView, mDepthStencilView);
 
 	// render cubes
-	if(false)
+	if(true)
     {
         //D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Cubes");
 
-        mImmediateContext->RSSetState( mRSOrdinary );
+        context->RSSetState( mRSOrdinary );
 
         cube.rotationEuler = XMFLOAT3( 0, totalTime * 0.0001f, 0 );
         cube.position = XMFLOAT3(0, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+        FUtil::RenderPrimitive( &cube, context, cb, mCBChangesEveryFrame );
 
         cube.position = XMFLOAT3(3, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+        FUtil::RenderPrimitive( &cube, context, cb, mCBChangesEveryFrame );
 
         cube.position = XMFLOAT3(-3, 0, 0);
-        FUtil::RenderPrimitive( &cube, mImmediateContext, cb, mCBChangesEveryFrame );
+        FUtil::RenderPrimitive( &cube, context, cb, mCBChangesEveryFrame );
 
         //D3DPERF_EndEvent();
     }
     
-    if(true)
+    if(false)
     {
-        mImmediateContext->RSSetState(mRSWireframe);
+        context->RSSetState(mRSWireframe);
 
         simpSurf.position = XMFLOAT3(0, 0, 0);
-        FUtil::RenderPrimitive(&simpSurf, mImmediateContext, cb, mCBChangesEveryFrame);
+        FUtil::RenderPrimitive(&simpSurf, context, cb, mCBChangesEveryFrame);
     }
 
 
     // render cameras frustums
-    if(false)//!bViewCameraMain)
+    if(true)//!bViewCameraMain)
     {
         XMVECTOR det;
         XMMATRIX invViewProj = mainCamera.getViewMatrix() * mainCamera.getProjMatrix();
         invViewProj = XMMatrixInverse( &det, invViewProj );
         cb.vMeshColor = XMFLOAT4(1, 0, 0, 1);
-        RenderCamera(mImmediateContext, mDevice, &invViewProj);
+        RenderCamera(context, mDevice, &invViewProj);
 
         cb.vMeshColor = XMFLOAT4(0, 1, 0 ,1);
-        RenderCamera(mImmediateContext, mDevice, &surface.projectorWorldViewInverted);
+        RenderCamera(context, mDevice, &surface.projectorWorldViewInverted);
     }
 
     // render debug points
@@ -359,11 +368,27 @@ HRESULT TestProject::RenderScene()
         for(int i = 0; i < surface.numOfPositions; i++)
             vectors[i] = XMVectorSet(surface.positions[i].x, surface.positions[i].y, surface.positions[i].z, 1);
 
-        RenderPoints(mImmediateContext, mDevice, vectors, surface.numOfPositions);
+        RenderPoints(context, mDevice, vectors, surface.numOfPositions);
         
         _mm_free(vectors);
         vectors = NULL;
     }
+
+    if(bDeferred)
+    {
+        HRESULT hr = context->FinishCommandList(false, &mDeferredCommandList);
+        if(FAILED(hr))
+        {
+            FUtil::Log("Failed to create command list");
+        }
+        if(mDeferredCommandList)
+        {
+            mImmediateContext->ExecuteCommandList(mDeferredCommandList, true);
+            mDeferredCommandList->Release();
+            mDeferredCommandList = nullptr;
+        }
+    }
+
 
     // projected grid (along with water shader)
     /*//D3DPERF_BeginEvent(D3DCOLOR_RGBA(0, 255, 0, 0), L"Water grid");

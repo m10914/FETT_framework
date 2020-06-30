@@ -12,6 +12,7 @@ DXApp::DXApp():
 	mFeatureLevel(D3D_FEATURE_LEVEL_11_0),
 	mDevice(NULL),
 	mImmediateContext(NULL),
+    mDeferredContext(nullptr),
 	mSwapChain(NULL),
 	mRenderTargetView(NULL),
 	mDepthStencilView(NULL),
@@ -128,6 +129,13 @@ HRESULT DXApp::Init(HWND lHwnd, HINSTANCE hInstance)
 	}
 	if( FAILED( hr ) )
 		return hr;
+
+    hr = mDevice->CreateDeferredContext(0, &mDeferredContext);
+    if(FAILED(hr))
+    {
+        FUtil::Log("Failed to create deferred context\n");
+        return hr;
+    }
 
 	// Setup the viewport
 	D3D11_VIEWPORT vp;
